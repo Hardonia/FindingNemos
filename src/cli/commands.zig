@@ -325,11 +325,30 @@ fn cmdConfigValidate(args: cli.ParsedArgs) u8 {
 fn cmdDaemon(args: cli.ParsedArgs) u8 {
     if (std.mem.eql(u8, args.subcommand, "run")) {
         std.io.getStdOut().writer().print("FindingNemos daemon starting...\n", .{}) catch {};
-        std.io.getStdOut().writer().print("Phase 1: JSON-over-stdin protocol (HTTP server planned for Phase 2)\n", .{}) catch {};
-        std.io.getStdOut().writer().print("Listening on stdin. Send JSON commands, one per line.\n", .{}) catch {};
-        std.io.getStdOut().writer().print("Type {{\"command\":\"health\"}} to test.\n", .{}) catch {};
-        // In Phase 1, we just report that the daemon would run here.
-        // Actual stdin loop is deferred to avoid blocking in the scaffold.
+        
+        var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        defer arena.deinit();
+        
+        const server = @import("../daemon/server.zig");
+        var srv = server.Server.init(arena.allocator(), .{}) catch |err| {
+            std.io.getStdErr().writer().print("error: could not init daemon server: {}\n", .{err}) catch {};
+            return 1;
+        };
+        defer srv.deinit();
+        
+        srv.start() catch |err| {
+            std.io.getStdErr().writer().print("error: could not start daemon server: {}\n", .{err}) catch {};
+            return 1;
+        };
+        
+        std.io.getStdOut().writer().print("Daemon HTTP Server running on 127.0.0.1:8080\n", .{}) catch {};
+        std.io.getStdOut().writer().print("Press Ctrl+C to stop.\n", .{}) catch {};
+        
+        // Wait indefinitely (Ctrl+C will terminate)
+        while (true) {
+            std.time.sleep(1 * std.time.ns_per_s);
+        }
+        
         return 0;
     }
     if (std.mem.eql(u8, args.subcommand, "status")) {

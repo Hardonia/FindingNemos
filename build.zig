@@ -51,6 +51,7 @@ pub fn build(b: *std.Build) void {
         "src/supervisor/process.zig",
         "src/supervisor/restart_policy.zig",
         "src/daemon/health.zig",
+        "src/daemon/server.zig",
         "src/cli/cli.zig",
     };
 
