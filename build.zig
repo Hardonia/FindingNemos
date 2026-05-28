@@ -12,9 +12,11 @@ pub fn build(b: *std.Build) void {
     // ---------- Main CLI executable ----------
     const exe = b.addExecutable(.{
         .name = "findingnemos",
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
 
     b.installArtifact(exe);
@@ -58,9 +60,11 @@ pub fn build(b: *std.Build) void {
 
     for (test_targets) |path| {
         const t = b.addTest(.{
-            .root_source_file = b.path(path),
-            .target = target,
-            .optimize = optimize,
+            .root_module = b.createModule(.{
+                .root_source_file = b.path(path),
+                .target = target,
+                .optimize = optimize,
+            }),
         });
         const run_t = b.addRunArtifact(t);
         test_step.dependOn(&run_t.step);
