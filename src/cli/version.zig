@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// FindingNemos — version command (implementation in commands.zig)
+const std = @import("std");
 
-const app = @import("../core/app.zig");
-pub const version = app.version;
-pub const name = app.name;
+pub fn run() !void {
+    const stdout = std.io.getStdOut().writer();
+    try stdout.print("FindingNemos 0.1.0\n", .{});
+}

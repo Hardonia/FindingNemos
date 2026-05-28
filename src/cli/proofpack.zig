@@ -1,2 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// FindingNemos — proofpack command (implementation in commands.zig)
+const std = @import("std");
+
+pub fn exportPack(out_path: []const u8) !void {
+    const stdout = std.io.getStdOut().writer();
+    try stdout.print("Exporting proofpack to {s}...\n", .{out_path});
+}
