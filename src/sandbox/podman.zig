@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 const std = @import("std");
 
-pub fn isCompatLayerActive() bool {
+pub fn checkPodmanAvailable() !bool {
     // Scaffold implementation
     return false;
 }

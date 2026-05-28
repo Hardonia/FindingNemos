@@ -1,4 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
-// FindingNemos — sandbox module root
+const std = @import("std");
 
-pub const state = @import("../core/state.zig");
+pub const SandboxConfig = struct {
+    runtime: []const u8 = "docker",
+    network: bool = false,
+};
+
+pub fn checkSandboxCapabilities() !bool {
+    // Scaffold implementation
+    return true;
+}
