@@ -1,31 +1,22 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: Apache-2.0
-# FindingNemos — release check
+set -e
 
-set -euo pipefail
+echo "Running release safety checks..."
 
-echo "FindingNemos Release Check"
-echo "=========================="
-echo ""
+# Check formatting
+zig fmt --check .
 
-# Build
-echo "--- Build ---"
-zig build
-echo "OK"
-
-# Tests
-echo "--- Tests ---"
+# Run tests
 zig build test
-echo "OK"
 
-# Format
-echo "--- Format Check ---"
-zig build fmt
-echo "OK"
-
-# Smoke
-echo "--- Smoke ---"
+# Run smoke test
 ./scripts/smoke.sh
-echo ""
 
-echo "=== Release Check PASSED ==="
+# Look for secrets
+if command -v gitleaks &> /dev/null; then
+    gitleaks detect -v
+else
+    echo "gitleaks not installed, skipping secret scan."
+fi
+
+echo "Release checks passed."
