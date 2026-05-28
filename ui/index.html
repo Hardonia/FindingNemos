@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FindingNemos Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo"></div>
+                <h1>FindingNemos</h1>
+            </div>
+            <nav>
+                <a href="#" class="active" id="nav-dashboard">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                    Dashboard
+                </a>
+                <a href="#" id="nav-models">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                    Providers
+                </a>
+                <a href="#" id="nav-workers">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    Workers
+                </a>
+                <a href="#" id="nav-logs">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="3" y2="18"></line></svg>
+                    Audit Logs
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <div class="pulse-dot"></div>
+                    <span>System Nominal</span>
+                </div>
+                <div class="version-label">v0.1.0</div>
+            </div>
+        </aside>
+
+        <main class="content">
+            <header class="topbar">
+                <div class="page-title">
+                    <h2 id="current-page-title">Dashboard Overview</h2>
+                    <p id="current-page-subtitle">Real-time status of the local AI substrate.</p>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-primary" id="btn-refresh">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                        Refresh
+                    </button>
+                </div>
+            </header>
+
+            <div class="dashboard-grid">
+                <!-- System Status Card -->
+                <div class="card stat-card glow">
+                    <div class="card-icon blue">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                    </div>
+                    <div class="card-body">
+                        <h3>Substrate Daemon</h3>
+                        <div class="value" id="daemon-status">Online</div>
+                        <div class="meta" id="daemon-uptime">Uptime: 0h 0m</div>
+                    </div>
+                </div>
+
+                <!-- Isolation Card -->
+                <div class="card stat-card glow-green">
+                    <div class="card-icon green">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    </div>
+                    <div class="card-body">
+                        <h3>Sandbox Isolation</h3>
+                        <div class="value" id="isolation-status">Strict</div>
+                        <div class="meta">Network: none, Caps: dropped</div>
+                    </div>
+                </div>
+
+                <!-- Workers Card -->
+                <div class="card stat-card glow-purple">
+                    <div class="card-icon purple">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    </div>
+                    <div class="card-body">
+                        <h3>Active Workers</h3>
+                        <div class="value" id="worker-count">0</div>
+                        <div class="meta">Containers Running</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="details-section">
+                <!-- Live Providers -->
+                <div class="card list-card">
+                    <div class="card-header">
+                        <h3>Inference Providers</h3>
+                    </div>
+                    <div class="list-content" id="providers-list">
+                        <div class="list-item">
+                            <div class="item-icon grey"></div>
+                            <div class="item-details">
+                                <div class="item-name">Ollama</div>
+                                <div class="item-desc">http://localhost:11434</div>
+                            </div>
+                            <div class="item-status badge badge-offline">Unavailable</div>
+                        </div>
+                        <div class="list-item">
+                            <div class="item-icon grey"></div>
+                            <div class="item-details">
+                                <div class="item-name">Llama.cpp</div>
+                                <div class="item-desc">Not configured</div>
+                            </div>
+                            <div class="item-status badge badge-offline">Disabled</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Hardware -->
+                <div class="card list-card">
+                    <div class="card-header">
+                        <h3>Telemetry Snapshot</h3>
+                    </div>
+                    <div class="list-content" id="telemetry-list">
+                        <div class="list-item">
+                            <div class="item-details">
+                                <div class="item-name">Docker Engine</div>
+                                <div class="item-desc" id="docker-detect">Checking...</div>
+                            </div>
+                            <div class="item-status badge badge-unknown">Probing</div>
+                        </div>
+                        <div class="list-item">
+                            <div class="item-details">
+                                <div class="item-name">CPU Cores</div>
+                                <div class="item-desc" id="cpu-detect">Checking...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

@@ -57,6 +57,69 @@ pub fn assessConfig(info: *ProviderInfo) void {
     info.state = .configured;
 }
 
+/// Perform an actual HTTP probe to the provider's health endpoint.
+/// Updates state to .ready, .degraded, or .unavailable.
+pub fn probeHealth(allocator: std.mem.Allocator, info: *ProviderInfo) !void {
+    if (!isConfigured(info.*)) {
+        info.state = .unavailable;
+        return;
+    }
+
+    const endpoint = info.endpoint.?;
+    
+    var url_buf: [512]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&url_buf);
+    
+    // Format endpoint avoiding double slashes if health_path starts with /
+    const has_trailing = std.mem.endsWith(u8, endpoint, "/");
+    const has_leading = std.mem.startsWith(u8, info.health_path, "/");
+    
+    if (has_trailing and has_leading) {
+        try fbs.writer().print("{s}{s}", .{ endpoint, info.health_path[1..] });
+    } else if (!has_trailing and !has_leading) {
+        try fbs.writer().print("{s}/{s}", .{ endpoint, info.health_path });
+    } else {
+        try fbs.writer().print("{s}{s}", .{ endpoint, info.health_path });
+    }
+    
+    const url_str = fbs.getWritten();
+    const uri = std.Uri.parse(url_str) catch {
+        info.state = .unavailable;
+        return;
+    };
+
+    var client = std.http.Client{ .allocator = allocator };
+    defer client.deinit();
+
+    var server_header_buffer: [4096]u8 = undefined;
+    var request = client.open(.GET, uri, .{
+        .server_header_buffer = &server_header_buffer,
+    }) catch {
+        info.state = .unavailable;
+        return;
+    };
+    defer request.deinit();
+
+    request.send() catch {
+        info.state = .unavailable;
+        return;
+    };
+    request.finish() catch {
+        info.state = .unavailable;
+        return;
+    };
+    request.wait() catch {
+        info.state = .unavailable;
+        return;
+    };
+
+    if (request.response.status == .ok) {
+        info.state = .ready;
+    } else {
+        info.state = .degraded;
+    }
+}
+
 /// Build a ProviderInfo for Ollama from config values.
 pub fn ollamaProvider(endpoint: ?[]const u8) ProviderInfo {
     return .{

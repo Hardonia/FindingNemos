@@ -29,8 +29,8 @@ pub fn checkAvailability(allocator: std.mem.Allocator) state.Availability {
     defer allocator.free(result.stderr);
 
     return switch (result.term) {
-        .Exited => |code| if (code == 0) .available else .unhealthy,
-        else => .unhealthy,
+        .Exited => |code| if (code == 0) .available else .unavailable,
+        else => .unavailable,
     };
 }
 
@@ -67,7 +67,7 @@ pub fn createContainerProcess(
     }
 
     const full_cmd = try cmd_builder.toOwnedSlice();
-    defer allocator.free(full_cmd);
+    // caller owns full_cmd memory
     
     return process.ManagedProcess.init(allocator, name, full_cmd);
 }
@@ -82,6 +82,7 @@ test "container process formatting" {
     const args = &[_][]const u8{"echo", "hello"};
     var p = try createContainerProcess(allocator, "test-box", .{}, args);
     defer p.deinit();
+    defer allocator.free(p.handle.command);
     
     // Check if the command starts with "docker run"
     try std.testing.expect(std.mem.startsWith(u8, p.handle.command, "docker run"));

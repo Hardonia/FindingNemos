@@ -49,6 +49,87 @@ pub fn markStopped(handle: *ProcessHandle, exit_code: ?u8) void {
     handle.stopped_at = time.epochSeconds();
 }
 
+pub const ManagedProcess = struct {
+    allocator: std.mem.Allocator,
+    handle: ProcessHandle,
+    child: ?std.process.Child = null,
+    log_file: ?std.fs.File = null,
+
+    pub fn init(allocator: std.mem.Allocator, name: []const u8, command: []const u8) ManagedProcess {
+        return .{
+            .allocator = allocator,
+            .handle = create(name, command),
+        };
+    }
+
+    pub fn start(self: *ManagedProcess, log_dir: []const u8) !void {
+        if (self.handle.hasLivePid()) return error.AlreadyRunning;
+
+        var args_list = std.ArrayList([]const u8).init(self.allocator);
+        defer args_list.deinit();
+
+        var it = std.mem.tokenizeScalar(u8, self.handle.command, ' ');
+        while (it.next()) |token| {
+            try args_list.append(token);
+        }
+
+        var child = std.process.Child.init(args_list.items, self.allocator);
+
+        var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+        var fbs = std.io.fixedBufferStream(&path_buf);
+        try fbs.writer().print("{s}/{s}.log", .{ log_dir, self.handle.name });
+        const log_path = fbs.getWritten();
+        
+        self.handle.log_path = try self.allocator.dupe(u8, log_path);
+
+        const log_file = try std.fs.cwd().createFile(log_path, .{
+            .read = true,
+            .truncate = false,
+        });
+        
+        try log_file.seekFromEnd(0);
+        self.log_file = log_file;
+
+        child.stdout_behavior = .{ .File = log_file };
+        child.stderr_behavior = .{ .File = log_file };
+
+        try child.spawn();
+
+        self.child = child;
+        markStarted(&self.handle, @intCast(child.id));
+    }
+
+    pub fn stop(self: *ManagedProcess) !void {
+        if (!self.handle.hasLivePid() or self.child == null) return;
+        
+        var child = self.child.?;
+        _ = try child.kill();
+        const term = try child.wait();
+        
+        const code: ?u8 = switch (term) {
+            .Exited => |c| c,
+            else => null,
+        };
+        
+        markStopped(&self.handle, code);
+        
+        if (self.log_file) |f| {
+            f.close();
+            self.log_file = null;
+        }
+        self.child = null;
+    }
+
+    pub fn deinit(self: *ManagedProcess) void {
+        if (self.handle.hasLivePid()) {
+            self.stop() catch {};
+        }
+        if (self.handle.log_path) |p| {
+            self.allocator.free(p);
+        }
+    }
+};
+
 // ---------------------------------------------------------------------------
 test "process lifecycle" {
     var p = create("test-worker", "echo hello");
@@ -70,4 +151,10 @@ test "failed exit code marks failed" {
     markStarted(&p, 99);
     markStopped(&p, 1);
     try std.testing.expectEqual(state.WorkerState.failed, p.state);
+}
+
+test "managed process spawn" {
+    const allocator = std.testing.allocator;
+    var mp = ManagedProcess.init(allocator, "test-echo", "echo hello");
+    defer mp.deinit();
 }

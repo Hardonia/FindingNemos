@@ -9,12 +9,14 @@ comptime {
     _ = @import("core/time.zig");
     _ = @import("core/paths.zig");
     _ = @import("core/json.zig");
+    _ = @import("core/backup.zig");
     
     _ = @import("config/toml.zig");
     _ = @import("config/validation.zig");
     
     _ = @import("policy/egress.zig");
     _ = @import("policy/ssrf.zig");
+    _ = @import("policy/isolation.zig");
     
     _ = @import("inference/provider.zig");
     _ = @import("inference/router.zig");
@@ -22,11 +24,13 @@ comptime {
     
     _ = @import("proof/proofpack.zig");
     _ = @import("proof/evidence.zig");
+    _ = @import("proof/audit_log.zig");
     
     _ = @import("supervisor/process.zig");
     _ = @import("supervisor/restart_policy.zig");
     
     _ = @import("sandbox/docker.zig");
+    _ = @import("sandbox/network.zig");
     
     _ = @import("daemon/health.zig");
     _ = @import("daemon/server.zig");
