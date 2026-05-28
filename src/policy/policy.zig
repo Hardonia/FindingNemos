@@ -1,5 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
-// FindingNemos — policy module root
+const std = @import("std");
+const state = @import("../core/state.zig");
 
-pub const egress = @import("egress.zig");
-pub const ssrf = @import("ssrf.zig");
+pub fn evaluateRequest(host: []const u8) state.PolicyDecision {
+    _ = host;
+    // Default deny placeholder
+    return state.PolicyDecision{
+        .state = .denied,
+        .reason = "default deny",
+    };
+}
+
+test "evaluateRequest defaults to deny" {
+    const testing = std.testing;
+    const decision = evaluateRequest("example.com");
+    try testing.expect(decision.state == .denied);
+}

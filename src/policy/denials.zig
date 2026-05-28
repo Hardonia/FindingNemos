@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-// FindingNemos — denial logging
-
 const std = @import("std");
 
-pub const Denial = struct {
-    host: []const u8,
-    reason: []const u8,
-    timestamp_epoch: i64,
-};
+pub fn isDenied(host: []const u8, denylist: [][]const u8) bool {
+    for (denylist) |denied| {
+        if (std.mem.eql(u8, host, denied)) return true;
+    }
+    return false;
+}

@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// FindingNemos — proofpack export
-
 const std = @import("std");
-const proofpack = @import("proofpack.zig");
 
-/// Export format selection.
-pub const Format = enum { json, markdown };
+pub fn exportProofpack(export_path: []const u8) !void {
+    _ = export_path;
+    // Implementation to bundle state, evidence, and logs into a zip or json/md bundle
+}
