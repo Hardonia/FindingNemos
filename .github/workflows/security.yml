@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: Apache-2.0
+# FindingNemos Security — secret scanning
+
+name: Security
+
+on:
+  push:
+    branches: [main, "founding/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        continue-on-error: true  # Don't block on license issues
+
+      - name: Check for hardcoded keys in Zig source
+        run: |
+          echo "Checking for potential hardcoded API keys..."
+          if grep -rn 'sk-[a-zA-Z0-9]\{20,\}' src/ config/ docs/ || \
+             grep -rn 'nvapi-[a-zA-Z0-9]\{20,\}' src/ config/ docs/ || \
+             grep -rn 'hf_[a-zA-Z0-9]\{20,\}' src/ config/ docs/; then
+            echo "ERROR: Potential hardcoded API keys found!"
+            exit 1
+          fi
+          echo "No hardcoded keys detected."

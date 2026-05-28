@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: Apache-2.0
+// FindingNemos — CLI entry point
+//
+// The findingnemos binary. Parses arguments, dispatches to commands,
+// and exits with a deterministic exit code.
+
+const std = @import("std");
+const cli = @import("cli/cli.zig");
+const commands = @import("cli/commands.zig");
+
+pub fn main() u8 {
+    const args = std.process.argsAlloc(std.heap.page_allocator) catch {
+        std.io.getStdErr().writer().print("error: could not read arguments\n", .{}) catch {};
+        return 10;
+    };
+
+    const parsed = cli.parse(args);
+    return commands.dispatch(parsed);
+}

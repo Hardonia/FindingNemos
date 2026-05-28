@@ -1,58 +1,71 @@
-<!-- markdownlint-disable MD041 -->
-## Security
+# Security Policy
 
-NVIDIA is dedicated to the security and trust of its software products and services, including all source code repositories managed through our organization.
+## Reporting Vulnerabilities
 
-If you need to report a security issue, use the appropriate contact points outlined below.
-**DO NOT report security vulnerabilities through public GitHub issues or pull requests.**
-If a potential security issue is inadvertently reported through a public channel, NVIDIA maintainers may limit public discussion and redirect the reporter to the appropriate private disclosure channels.
+If you discover a security vulnerability in FindingNemos, please report it responsibly.
 
-## How to Report a Vulnerability
+**Email:** [security contact to be established]
 
-Report a potential security vulnerability in NemoClaw or any NVIDIA product through one of the following channels.
+**Do NOT:**
+- Open a public GitHub issue for security vulnerabilities
+- Post vulnerability details in discussions or social media before a fix is available
 
-### NVIDIA Vulnerability Disclosure Program
+**Do:**
+- Provide a clear description of the vulnerability
+- Include steps to reproduce if possible
+- Allow reasonable time for a fix before public disclosure
 
-Submit a report through the [NVIDIA Vulnerability Disclosure Program](https://www.nvidia.com/en-us/security/report-vulnerability/).
-This is the preferred method for reporting security concerns across all NVIDIA products.
+## Security Model
 
-### Email
+FindingNemos follows a defense-in-depth approach:
 
-Send an encrypted email to [psirt@nvidia.com](mailto:psirt@nvidia.com).
-Use the [NVIDIA public PGP key](https://www.nvidia.com/en-us/security/pgp-key) to encrypt the message.
+### Secrets Handling
 
-### GitHub Private Vulnerability Reporting
+- **Never store raw API keys in config files.** Config references environment variable names only.
+- **Never log, export, or display raw secret values.** All secret output is redacted.
+- **Credential redaction is enabled by default** and should not be disabled in production.
+- The `looksLikeKey()` heuristic detects common key patterns (sk-*, nvapi-*, hf_*) as a safety net.
 
-You can use [GitHub's private vulnerability reporting](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configuring-private-vulnerability-reporting-for-a-repository) to submit a report directly on this repository.
-Navigate to the **Security** tab and select **Report a vulnerability**.
+### Egress Policy
 
-## What to Include
+- **Deny-by-default** is the recommended and default policy.
+- **SSRF protection** blocks cloud metadata endpoints (169.254.169.254), localhost, and Kubernetes internal DNS.
+- **Private IP blocking** prevents requests to RFC 1918, link-local, and loopback ranges.
+- Policy decisions are logged with reasons for operator auditability.
 
-Provide as much of the following information as possible:
+### Process Isolation
 
-- Product name and version or branch that contains the vulnerability.
-- Type of vulnerability (code execution, denial of service, buffer overflow, privilege escalation, etc.).
-- Step-by-step instructions to reproduce the vulnerability.
-- Proof-of-concept or exploit code.
-- Potential impact, including how an attacker could exploit the vulnerability.
+- Workers run as child processes with captured stdout/stderr.
+- **Restart policy defaults to `disabled`** — no automatic restarts unless explicitly configured.
+- Process supervision does not grant elevated privileges.
 
-Detailed reports help NVIDIA evaluate and address issues faster.
+### Container Sandboxing
 
-## What to Expect
+- **Phase 1 does not implement container sandboxing.** The sandbox module detects Docker/OpenShell presence but does not create containers.
+- FindingNemos does not claim sandbox security unless a verified runtime is configured and probed.
+- Docker presence alone does not imply security — container isolation depends on kernel capabilities, seccomp profiles, user namespaces, and runtime configuration.
 
-NVIDIA's Product Security Incident Response Team (PSIRT) triages all incoming reports.
-After submission:
+### What We Do NOT Claim
 
-1. NVIDIA acknowledges receipt and begins analysis.
-2. NVIDIA validates the report and determines severity.
-3. NVIDIA develops and tests corrective actions.
-4. NVIDIA publishes a security bulletin and releases a fix.
+- GPU scheduling security (not implemented)
+- Network namespace isolation (requires container runtime)
+- Landlock/seccomp enforcement (requires verified runtime delegation)
+- Protection against malicious model weights
+- Protection against prompt injection (application-layer concern)
 
-Visit the [PSIRT Policies](https://www.nvidia.com/en-us/security/) page for details on timelines and acknowledgement practices.
+## Supported Versions
 
-While NVIDIA does not currently have a public bug bounty program, we do offer acknowledgement when an externally reported security issue is addressed under our coordinated vulnerability disclosure policy.
+| Version | Supported |
+|---------|-----------|
+| 0.1.x   | Development scaffold — no security guarantees |
 
-## NVIDIA Product Security
+## Security Invariants
 
-For security bulletins, PSIRT policies, and all security-related concerns, visit the [NVIDIA Product Security](https://www.nvidia.com/en-us/security/) portal.
-Subscribe to notifications on that page to receive alerts when new bulletins are published.
+These invariants must be maintained across all changes:
+
+1. No raw API key values in logs, proofpacks, status output, config files, or test fixtures
+2. Egress policy defaults to deny
+3. SSRF validation cannot be silently disabled
+4. Process supervisor does not escalate privileges
+5. Proofpack export redacts all secret values by default
+6. Unknown dependency state is reported as `unknown`, never faked as `available`

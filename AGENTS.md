@@ -1,204 +1,101 @@
-<!-- SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved. -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Agent Instructions
+# Agent Instructions — FindingNemos
 
-## Project Overview
+## Project Identity
 
-NVIDIA NemoClaw is an open-source reference stack for running [OpenClaw](https://openclaw.ai) always-on assistants inside [NVIDIA OpenShell](https://github.com/NVIDIA/OpenShell) sandboxes more safely. It provides CLI tooling, a blueprint for sandbox orchestration, and security hardening.
+FindingNemos is a Zig-first local AI substrate for governed agent execution. It is derived from NVIDIA NemoClaw (Apache 2.0) but is an independent project with its own identity, codebase, and direction.
 
-**Status:** Alpha (March 2026+). Interfaces may change without notice.
+## Core Doctrine
 
-## Agent Skills
-
-This repo ships agent skills under `.agents/skills/`, organized into three audience buckets: `nemoclaw-user-*` (end users), `nemoclaw-maintainer-*` (project maintainers), and `nemoclaw-contributor-*` (codebase contributors). Load the `nemoclaw-skills-guide` skill for a full catalog and quick decision guide mapping tasks to skills.
+1. **Reality mode.** No theatre. No fake capability claims. Every feature is implemented, degraded, or explicitly unavailable.
+2. **Zig-first.** Core runtime, CLI, daemon, config validation, process supervision, and control plane are written in Zig.
+3. **Explicit verification.** Every claim must be backed by real state, real process checks, or explicit unsupported status.
+4. **Security invariants.** No secret leakage. No raw API keys in logs, proofpacks, config, status, or test fixtures.
+5. **Deterministic degraded states.** Missing dependencies report `unknown` or `unavailable`, never faked as `available`.
+6. **Always update docs/tests with behavior changes.** No undocumented behavior.
+7. **No fake autonomy.** Do not claim AI capabilities that aren't implemented.
 
 ## Architecture
 
 | Path | Language | Purpose |
 |------|----------|---------|
-| `bin/` | JavaScript (CJS) | CLI launcher (`nemoclaw.js`) and small compatibility helpers |
-| `src/lib/` | TypeScript | Core CLI logic: onboard, credentials, inference, policies, preflight, runner |
-| `nemoclaw/` | TypeScript | Plugin project (Commander CLI extension for OpenClaw) |
-| `nemoclaw/src/blueprint/` | TypeScript | Runner, snapshot, SSRF validation, state management |
-| `nemoclaw/src/commands/` | TypeScript | Slash commands, migration state |
-| `nemoclaw/src/onboard/` | TypeScript | Onboarding config |
-| `nemoclaw-blueprint/` | YAML | Blueprint definition and network policies |
-| `nemoclaw-blueprint/model-specific-setup/` | JSON | Agent-scoped model/provider compatibility registry |
-| `scripts/` | Bash/JS/TS | Install helpers, setup, automation, E2E tooling |
-| `test/` | JavaScript (ESM) | Root-level integration tests (Vitest) |
-| `test/e2e/` | Bash/JS/TS | End-to-end tests, scenario-based runner (see `test/e2e/README.md`) |
-| `docs/` | MDX/Markdown | User-facing docs (Fern MDX plus legacy MyST source during migration) |
-| `fern/` | YAML/CSS/SVG | Fern site configuration and shared assets |
+| `src/main.zig` | Zig | CLI entry point |
+| `src/cli/` | Zig | Argument parsing, command dispatch |
+| `src/core/` | Zig | Errors, state, IDs, time, paths, JSON writer |
+| `src/config/` | Zig | TOML parsing, schema, validation |
+| `src/daemon/` | Zig | Local daemon protocol and health |
+| `src/supervisor/` | Zig | Process lifecycle management |
+| `src/sandbox/` | Zig | Container detection, OpenShell compat |
+| `src/inference/` | Zig | Provider abstraction, deterministic router |
+| `src/policy/` | Zig | Egress policy, SSRF validation |
+| `src/telemetry/` | Zig | System metrics, GPU detection |
+| `src/proof/` | Zig | Proofpack generation and export |
+| `config/` | TOML | Example configuration files |
+| `docs/` | Markdown | Architecture, threat model, operator docs |
+| `scripts/` | Bash | Build helpers, smoke tests |
 
 ## Quick Reference
 
 | Task | Command |
 |------|---------|
-| Install all deps | `npm install && npm link && cd nemoclaw && npm install && npm run build && cd .. && cd nemoclaw-blueprint && uv sync && cd ..` |
-| Build plugin | `cd nemoclaw && npm run build` |
-| Watch mode | `cd nemoclaw && npm run dev` |
-| Run all tests | `npm test` |
-| Run plugin tests | `cd nemoclaw && npm test` |
-| Run all linters | `make check` |
-| Run all hooks manually | `npx prek run --all-files` |
-| Type-check CLI | `npm run typecheck:cli` |
-| Auto-format | `make format` |
-| Build docs | `npm run docs` |
-| Serve docs locally | `npm run docs:live` |
+| Build | `zig build` |
+| Test | `zig build test` |
+| Format check | `zig build fmt` |
+| Run CLI | `./zig-out/bin/findingnemos` |
+| Smoke test | `./scripts/smoke.sh` |
 
-## Key Architecture Decisions
+## Code Conventions
 
-### Dual-Language Stack
+### Zig
 
-- **CLI and plugin**: TypeScript (`src/`, `nemoclaw/src/`) with a small CommonJS launcher in `bin/`; ESM in `test/`
-- **Blueprint**: YAML configuration (`nemoclaw-blueprint/`)
-- **Docs**: Fern MDX for migrated pages; legacy MyST Markdown remains during the transition for generated skills and parity checks
-- **Tooling scripts**: Bash and Python
+- Use explicit allocators everywhere
+- No global mutable state unless justified and documented
+- Avoid hidden heap allocation in hot paths
+- Every module should have inline `test` blocks
+- Use bounded buffers where reasonable
+- Config parsing must fail closed
+- Prefer small composable modules over giant files
+- Add comments only where they clarify invariants or safety boundaries
 
-The `bin/` directory uses CommonJS intentionally for the launcher and a few compatibility helpers so the CLI still has a stable executable entry point. The main CLI implementation lives in `src/` and compiles to `dist/`. The `nemoclaw/` plugin uses TypeScript and requires compilation.
+### Security
 
-### Testing Strategy
+- Secret values must be redacted in all output
+- Never store raw API keys — reference env var names only
+- Egress policy defaults to deny
+- SSRF validation is always on by default
+- Unknown dependency state is `unknown`, never `available`
 
-Tests are organized into three Vitest projects defined in `vitest.config.ts`:
+### Exit Codes
 
-1. **`cli`** — `test/**/*.test.{js,ts}` — integration tests for CLI behavior
-2. **`plugin`** — `nemoclaw/src/**/*.test.ts` — unit tests co-located with source
-3. **`e2e-branch-validation`** — `test/e2e/brev-e2e.test.ts` — validates a branch from source on ephemeral Brev instance (requires `BREV_API_TOKEN`)
-
-When writing tests:
-
-- Root-level tests (`test/`) use ESM imports
-- Plugin tests use TypeScript and are co-located with their source files
-- Mock external dependencies; don't call real NVIDIA APIs in unit tests
-- E2E tests run on ephemeral Brev cloud instances
-
-### Security Model
-
-NemoClaw isolates agents inside OpenShell sandboxes with:
-
-- Network policies (`nemoclaw-blueprint/policies/`) controlling egress
-- Credential sanitization to prevent leaks
-- SSRF validation (`nemoclaw/src/blueprint/ssrf.ts`)
-- Docker capability drops and process limits
-
-Security-sensitive code paths require extra test coverage.
-
-## Code Style and Conventions
-
-### Commit Messages
-
-Conventional Commits required. Enforced by commitlint via prek `commit-msg` hook.
-
-```text
-<type>(<scope>): <description>
-```
-
-Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`, `perf`, `merge`
+- 0: success
+- 1: operational failure
+- 2: invalid user input/config
+- 3: dependency unavailable
+- 4: policy denied
+- 5: degraded/partial state
+- 10: internal invariant violation
 
 ### SPDX Headers
 
-Every source file must include an SPDX license header. The pre-commit hook auto-inserts them:
+Every source file must include:
 
-```javascript
-// SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+```zig
 // SPDX-License-Identifier: Apache-2.0
 ```
 
-For shell scripts use `#` comments. For Markdown use HTML comments.
+## Testing
 
-### JavaScript
+- Inline tests in each module (run via `zig build test`)
+- Integration tests in `src/tests/`
+- Smoke test script: `scripts/smoke.sh`
+- CI runs: format check, build, test, smoke
 
-- `bin/` launcher and remaining `scripts/*.js`: **CommonJS** (`require`/`module.exports`), Node.js 22.16+
-- `test/`: **ESM** (`import`/`export`)
-- Biome config in `biome.json`
-- Keep function complexity low; existing complexity hotspots are tracked separately
-- Unused vars pattern: prefix with `_`
+## Making Changes
 
-### TypeScript
-
-- Plugin code in `nemoclaw/src/` is linted and formatted by the root Biome config
-- CLI type-checking via `tsconfig.cli.json`
-- Plugin type-checking via `nemoclaw/tsconfig.json`
-
-### Shell Scripts
-
-- ShellCheck enforced (`.shellcheckrc` at root)
-- `shfmt` for formatting
-- All scripts must have shebangs and be executable
-
-### No External Project Links
-
-Do not add links to third-party code repositories, community collections, or unofficial resources. Links to official tool documentation (Node.js, Python, uv) are acceptable.
-
-## Git Hooks (prek)
-
-All hooks managed by [prek](https://prek.j178.dev/) (installed via `npm install`):
-
-| Hook | What runs |
-|------|-----------|
-| **pre-commit** | File fixers, formatters, linters, Vitest (plugin) |
-| **commit-msg** | commitlint (Conventional Commits) |
-| **pre-push** | TypeScript type check (tsc --noEmit for plugin, JS, CLI) |
-
-## Working with This Repo
-
-### Before Making Changes
-
-1. Read `CONTRIBUTING.md` for the full contributor guide
-2. Run `make check` to verify your environment is set up correctly
-3. Check that `npm test` passes before starting
-
-### Common Patterns
-
-**Adding a CLI command:**
-
-- Entry point: `bin/nemoclaw.js` (launches the compiled CLI in `dist/`)
-- Main CLI implementation lives in `src/lib/` and compiles to `dist/lib/`
-- Add tests in `test/`
-
-**Adding a plugin feature:**
-
-- Source: `nemoclaw/src/`
-- Co-locate tests as `*.test.ts`
-- Build with `cd nemoclaw && npm run build`
-
-**Adding a network policy preset:**
-
-- Add YAML to `nemoclaw-blueprint/policies/presets/`
-- Follow existing preset structure (see `slack.yaml`, `discord.yaml`)
-
-**Adding model-specific sandbox compatibility:**
-
-- Add a declarative manifest under `nemoclaw-blueprint/model-specific-setup/<agent>/`
-- Use one exact `agent` per manifest (`openclaw`, `hermes`, etc.); do not make shared multi-agent manifests
-- Put OpenClaw executable wrappers under `nemoclaw-blueprint/openclaw-plugins/`
-- Put Hermes executable wrappers under `agents/hermes/`
-- Keep `agents/hermes/generate-config.ts` as a thin build-time entrypoint; add Hermes env parsing, config construction, registry handling, and serialization under `agents/hermes/config/`
-- Do not add Hermes behavior for an OpenClaw issue without a Hermes-specific repro or acceptance test
-
-### Gotchas
-
-- `npm install` at root triggers `prek install` which sets up git hooks. If hooks fail, check that `core.hooksPath` is unset: `git config --unset core.hooksPath`
-- The `nemoclaw/` subdirectory has its own `package.json` and `node_modules`, while sharing the root Biome config — it's a separate npm project
-- SPDX headers are auto-inserted by pre-commit hooks; don't worry about adding them manually
-- Coverage thresholds are ratcheted in `ci/coverage-threshold-*.json` — new code should not decrease CLI or plugin coverage
-- The `.claude/skills` symlink points to `.agents/skills` — both paths resolve to the same content
-
-## Documentation
-
-- Source of truth: `docs/` directory
-- `.agents/skills/nemoclaw-user-*/*.md` is **autogenerated** — never edit directly
-- User skills are generated agent-skill packages, prefixed with `nemoclaw-user-*`, that help AI agents guide end users through NemoClaw workflows.
-- For normal docs changes, include only the source pages under `docs/`; the docs-to-skills hook runs in dry-run mode to validate generated output.
-- Follow style guide in `docs/CONTRIBUTING.md`
-- **Release prep only:** During release prep, run `nemoclaw-contributor-update-docs`, make doc version bumps, regenerate user skills, then open the docs refresh PR with both docs and generated user skills.
-
-## PR Requirements
-
-- Create feature branch from `main`
-- Run `make check` and `npm test` before submitting
-- Follow PR template (`.github/PULL_REQUEST_TEMPLATE.md`)
-- Update docs for any user-facing behavior changes
-- No secrets, API keys, or credentials committed
-- Limit open PRs to fewer than 10
+1. Ensure `zig build` succeeds
+2. Ensure `zig build test` passes
+3. Run `scripts/smoke.sh` for end-to-end validation
+4. Update docs for any user-facing changes
+5. Update CHANGELOG.md
+6. Never commit raw secrets or API keys

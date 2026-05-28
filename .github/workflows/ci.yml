@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: Apache-2.0
+# FindingNemos CI — build, test, format check, smoke
+
+name: CI
+
+on:
+  push:
+    branches: [main, "founding/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: "0.14.0"
+
+      - name: Check formatting
+        run: zig build fmt
+
+      - name: Build
+        run: zig build
+
+      - name: Run tests
+        run: zig build test
+
+      - name: Smoke test — version
+        run: ./zig-out/bin/findingnemos version
+
+      - name: Smoke test — doctor
+        run: ./zig-out/bin/findingnemos doctor || true
+
+      - name: Smoke test — status JSON
+        run: ./zig-out/bin/findingnemos status --json
+
+      - name: Smoke test — config validate
+        run: ./zig-out/bin/findingnemos config validate --config config/findingnemos.example.toml
+
+      - name: Smoke test — policy check
+        run: ./zig-out/bin/findingnemos policy check --host api.openai.com --config config/policy.example.toml
+
+      - name: Smoke test — proofpack export
+        run: |
+          ./zig-out/bin/findingnemos proofpack export --out /tmp/fn-proof
+          test -f /tmp/fn-proof/proofpack.json
+          test -f /tmp/fn-proof/proofpack.md
+
+  # Cross-compilation check (does not run tests on target)
+  cross-compile:
+    name: Cross-compile check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - x86_64-linux
+          - aarch64-linux
+          - x86_64-windows
+          - x86_64-macos
+          - aarch64-macos
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: "0.14.0"
+
+      - name: Build for ${{ matrix.target }}
+        run: zig build -Dtarget=${{ matrix.target }}

@@ -1,0 +1,26 @@
+FindingNemos
+Copyright 2025 FindingNemos Contributors
+
+This project is derived from NVIDIA NemoClaw, originally developed by
+NVIDIA Corporation and contributors. The original NemoClaw project is
+licensed under the Apache License, Version 2.0.
+
+Original NemoClaw:
+  Copyright 2026 NVIDIA Corporation
+  Licensed under the Apache License, Version 2.0
+  https://github.com/NVIDIA/NemoClaw
+
+FindingNemos is an independent project and is not affiliated with,
+endorsed by, or sponsored by NVIDIA Corporation. The NVIDIA name and
+NemoClaw name are used solely for attribution as required by the
+Apache 2.0 license.
+
+Portions of the architectural design and documentation structure in
+this project were inspired by NemoClaw's approach to:
+  - Sandbox lifecycle management
+  - Egress policy enforcement
+  - Provider credential handling
+  - Blueprint-based configuration
+
+All new code in FindingNemos is written in Zig and is original work
+by the FindingNemos contributors, licensed under Apache 2.0.

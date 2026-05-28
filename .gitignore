@@ -1,4 +1,9 @@
-# Build artifacts and caches
+# Zig build artifacts
+zig-out/
+zig-cache/
+.zig-cache/
+
+# Build artifacts and caches (legacy upstream)
 .version
 *.pyc
 *.tsbuildinfo
@@ -16,9 +21,10 @@ Thumbs.db
 
 # IDE metadata
 .idea/
+.vscode/
 
 # Project-specific
-.nemoclaw-maintainer/
+.findingnemos/
 draft_newsletter_*
 research/
 specs/

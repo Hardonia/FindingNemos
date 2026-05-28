@@ -1,0 +1,18 @@
+# FindingNemos — sandbox configuration
+#
+# Configure container-based sandbox isolation for agent workers.
+# Phase 1: sandbox support is limited to Docker detection.
+# OpenShell integration is opt-in and requires explicit configuration.
+
+[sandbox]
+# Runtime: "none" (no sandboxing), "docker", or "openshell"
+# Default is "none" — we do not claim sandbox security unless configured.
+runtime = "none"
+
+# Container image for sandboxed workers (when runtime = "docker")
+# image = "ghcr.io/your-org/findingnemos-sandbox:latest"
+
+# Resource limits (Phase 2)
+# memory_limit = "2g"
+# cpu_limit = "2.0"
+# pids_limit = 256
