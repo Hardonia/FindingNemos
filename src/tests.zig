@@ -26,6 +26,8 @@ comptime {
     _ = @import("supervisor/process.zig");
     _ = @import("supervisor/restart_policy.zig");
     
+    _ = @import("sandbox/docker.zig");
+    
     _ = @import("daemon/health.zig");
     _ = @import("daemon/server.zig");
     
