@@ -5,6 +5,7 @@
     .name = .findingnemos,
     .version = "0.1.0",
     .minimum_zig_version = "0.14.0",
+    .fingerprint = 0x19c2311b76260072,
 
     .paths = .{
         "build.zig",
