@@ -1,45 +1,14 @@
-# FindingNemos — main configuration
-#
-# Copy to ~/.findingnemos/config.toml and edit for your environment.
-# All secrets are referenced by environment variable name, NEVER raw values.
-
 [runtime]
-version = "0.1.0"
 debug = false
-log_level = "info"
 
 [daemon]
-enabled = false
-bind = "127.0.0.1"
-port = 9100
+port = 8080
 
 [sandbox]
-# Runtime: "none" (default), "docker", or "openshell"
-runtime = "none"
-# image = "ghcr.io/your-org/findingnemos-sandbox:latest"
-
-[policy]
-# Default egress policy: "deny" (recommended) or "allow"
-default = "deny"
-# Comma-separated allowlist of permitted egress hosts
-allowlist = "api.openai.com, huggingface.co"
-# denylist = "evil.com, malware.org"
-block_private = true
-block_ssrf = true
-
-[models]
-local_first = true
-# Uncomment and configure your model providers:
-# ollama_endpoint = "http://localhost:11434"
-# llamacpp_endpoint = "http://localhost:8080"
-# vllm_endpoint = "http://localhost:8000"
-# openai_endpoint = "https://api.openai.com"
-# openai_key_env = "OPENAI_API_KEY"
+provider = "docker"
 
 [telemetry]
 enabled = true
-gpu_probe = false
 
 [proofpack]
-# dir = "~/.findingnemos/proofpacks"
-redact_secrets = true
+export_path = "/tmp/findingnemos/proofpacks"

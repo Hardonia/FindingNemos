@@ -1,20 +1,15 @@
-// SPDX-License-Identifier: Apache-2.0
-// FindingNemos — Zig-first local AI substrate
-
 .{
-    .name = .findingnemos,
+    .name = "findingnemos",
     .version = "0.1.0",
-    .minimum_zig_version = "0.14.0",
-    .fingerprint = 0x19c2311b76260072,
-
+    .minimum_zig_version = "0.13.0",
+    .dependencies = .{
+        // Add TOML parser dependency here if needed, or we'll implement a basic one/fail-closed parser.
+    },
     .paths = .{
         "build.zig",
         "build.zig.zon",
         "src",
         "LICENSE",
-        "NOTICE",
         "README.md",
     },
-
-    .dependencies = .{},
 }

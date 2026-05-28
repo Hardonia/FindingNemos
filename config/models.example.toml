@@ -1,30 +1,34 @@
-# FindingNemos — model provider configuration
-#
-# Configure one or more inference backends. FindingNemos routes requests
-# to the best available provider based on health, priority, and local-first
-# preference. No fake intelligence — routing is deterministic and transparent.
-#
-# SECURITY: Never put raw API keys here. Use environment variable names only.
-
 [models]
-local_first = true
+providers = [
+    "ollama",
+    "vllm",
+    "llamacpp",
+    "openai_hosted",
+    "disabled_provider"
+]
 
-# --- Local Ollama ---
-# Requires: Ollama running locally
-# Health check: GET /api/tags
-ollama_endpoint = "http://localhost:11434"
+[providers.ollama]
+type = "local"
+endpoint = "http://localhost:11434"
+priority = 1
 
-# --- Local llama.cpp server ---
-# Requires: llama-server running
-# Health check: GET /health
-# llamacpp_endpoint = "http://localhost:8080"
+[providers.vllm]
+type = "local"
+endpoint = "http://localhost:8000/v1"
+priority = 2
 
-# --- Local vLLM ---
-# Requires: vLLM OpenAI-compatible server
-# Health check: GET /v1/models
-# vllm_endpoint = "http://localhost:8000"
+[providers.llamacpp]
+type = "local"
+endpoint = "http://localhost:8080"
+priority = 3
 
-# --- Hosted OpenAI-compatible ---
-# Works with: OpenAI, Groq, Together, Fireworks, any /v1/models endpoint
-# openai_endpoint = "https://api.openai.com"
-# openai_key_env = "OPENAI_API_KEY"
+[providers.openai_hosted]
+type = "remote"
+endpoint = "https://api.openai.com/v1"
+priority = 10
+
+[providers.disabled_provider]
+type = "remote"
+endpoint = "https://api.example.com"
+enabled = false
+priority = 99

@@ -1,24 +1,10 @@
-# FindingNemos — egress policy configuration
-#
-# Controls which external hosts sandboxed workers and inference requests
-# are permitted to contact. Deny-by-default is strongly recommended.
-
 [policy]
-# "deny" = block all egress unless allowlisted (recommended)
-# "allow" = permit all egress unless denylisted
-default = "deny"
-
-# Comma-separated list of permitted hosts.
-# Supports exact match and suffix match (e.g., ".github.com" matches "api.github.com").
-allowlist = "api.openai.com, .huggingface.co, ollama.ai"
-
-# Comma-separated list of explicitly denied hosts (checked before allowlist).
-# denylist = "evil.com, malware.org, crypto-miner.io"
-
-# Block all RFC 1918 / link-local / loopback addresses.
-# Disable only if your model server is on a private network AND you understand the risk.
-block_private = true
-
-# Block known SSRF targets: cloud metadata (169.254.169.254), localhost,
-# Kubernetes internal DNS, etc.
-block_ssrf = true
+allowlist = [
+    "api.openai.com",
+    "api.anthropic.com"
+]
+denylist = [
+    "169.254.169.254", # AWS metadata
+    "localhost",
+    "127.0.0.1"
+]

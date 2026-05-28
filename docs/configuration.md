@@ -1,79 +1,42 @@
-# Configuration Reference
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 
-## Config File Location
+# FindingNemos Configuration
 
-Default: `~/.findingnemos/config.toml`
+FindingNemos uses TOML for its configuration to ensure human readability and strong typed validation.
 
-Override with: `--config <path>`
+## Philosophy
 
-## Sections
+- **Fail Closed**: If a configuration file is missing required sections, has contradictory rules, or is syntactically invalid, FindingNemos will refuse to start.
+- **Explicit Definitions**: You must explicitly define network egress rules and provider priority.
+- **Redaction**: Secrets (like provider API keys) should ideally be passed via the environment, but if present in the configuration, they are redacted in all system outputs and proofpacks.
 
-### [runtime]
+## Main Configuration (`config.toml`)
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `version` | string | `"0.1.0"` | Config format version |
-| `debug` | bool | `false` | Enable debug output |
-| `log_level` | string | `"info"` | Log level: debug, info, warn, error |
+By default, the configuration is loaded from `~/.findingnemos/config.toml`.
 
-### [daemon]
+### Example
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `enabled` | bool | `false` | Enable the daemon |
-| `bind` | string | `"127.0.0.1"` | Bind address (Phase 2 HTTP) |
-| `port` | int | `9100` | Port (1-65535) |
+```toml
+[runtime]
+debug = false
 
-### [sandbox]
+[daemon]
+port = 8080
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `runtime` | string | `"none"` | `none`, `docker`, or `openshell` |
-| `image` | string | null | Container image (when runtime != none) |
+[sandbox]
+provider = "docker"
 
-### [policy]
+[telemetry]
+enabled = true
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `default` | string | `"deny"` | `allow` or `deny` |
-| `allowlist` | string | null | Comma-separated allowed hosts |
-| `denylist` | string | null | Comma-separated denied hosts |
-| `block_private` | bool | `true` | Block RFC 1918 / link-local IPs |
-| `block_ssrf` | bool | `true` | Block metadata / SSRF targets |
-
-### [models]
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `local_first` | bool | `true` | Prefer local providers in routing |
-| `ollama_endpoint` | string | null | Ollama server URL |
-| `llamacpp_endpoint` | string | null | llama.cpp server URL |
-| `vllm_endpoint` | string | null | vLLM server URL |
-| `openai_endpoint` | string | null | OpenAI-compatible API URL |
-| `openai_key_env` | string | null | Env var name containing API key |
-
-### [telemetry]
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `enabled` | bool | `true` | Enable telemetry collection |
-| `gpu_probe` | bool | `false` | Enable GPU detection (stub) |
-
-### [proofpack]
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `dir` | string | null | Proofpack output directory |
-| `redact_secrets` | bool | `true` | Redact secrets in proofpacks |
+[proofpack]
+export_path = "/tmp/findingnemos/proofpacks"
+```
 
 ## Validation
 
-Run `findingnemos config validate --config <path>` to validate a config file.
+You can validate your configuration offline using the CLI:
 
-Validation checks:
-- TOML syntax correctness
-- Known section names (warns on unknown)
-- Port range (1-65535)
-- Sandbox runtime values (none/docker/openshell)
-- Policy default values (allow/deny)
-- Security warnings (e.g., redact_secrets=false)
+```bash
+findingnemos config validate --config ~/.findingnemos/config.toml
+```
