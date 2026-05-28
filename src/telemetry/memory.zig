@@ -1,13 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// FindingNemos — memory telemetry (stub)
+const std = @import("std");
 
-/// Phase 1: Memory probing requires OS-specific APIs.
-/// Linux: /proc/meminfo. Windows: GlobalMemoryStatusEx.
-/// Not implemented in scaffold.
-pub fn totalBytes() ?u64 {
-    return null;
-}
-
-pub fn availableBytes() ?u64 {
-    return null;
+pub fn getMemoryUsage() !u64 {
+    // Scaffold implementation
+    return 0;
 }

@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// FindingNemos — vLLM provider stub
+const std = @import("std");
 
-const provider = @import("provider.zig");
-
-pub fn create(endpoint: ?[]const u8) provider.ProviderInfo {
-    return provider.vllmProvider(endpoint);
+pub fn checkModels() !bool {
+    // Scaffold implementation: check /v1/models
+    return true;
 }
