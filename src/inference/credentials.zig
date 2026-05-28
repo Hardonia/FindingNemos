@@ -27,8 +27,7 @@ pub fn redactSlice(value: []const u8) []const u8 {
     if (value.len == 0) return "***";
     // For display purposes, we always return "***" for the value itself.
     // The actual env var NAME is safe to show; only the resolved value is secret.
-    _ = value;
-    return "***";
+    // value used for length check above, no discard needed
 }
 
 /// Check if a string looks like it might be a raw API key (heuristic).

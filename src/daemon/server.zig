@@ -19,7 +19,7 @@ pub const Server = struct {
     thread: ?std.Thread = null,
 
     pub fn init(allocator: std.mem.Allocator, options: ServerOptions) !*Server {
-        const addr = try std.net.Address.resolveIp(options.host, options.port);
+        const addr = try std.net.Address.parseIp4(options.host, options.port);
         const tcp_server = try addr.listen(.{
             .reuse_address = true,
         });
