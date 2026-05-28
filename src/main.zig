@@ -10,7 +10,8 @@ const commands = @import("cli/commands.zig");
 
 pub fn main() u8 {
     const args = std.process.argsAlloc(std.heap.page_allocator) catch {
-        std.io.getStdErr().writer().print("error: could not read arguments\n", .{}) catch {};
+        const w = std.io.getStdErr().writer();
+        w.print("error: could not read arguments\n", .{}) catch {};
         return 10;
     };
 
