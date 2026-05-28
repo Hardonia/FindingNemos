@@ -1,78 +1,36 @@
-# Roadmap
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 
-## Versioning
+# FindingNemos Roadmap
 
-FindingNemos follows semantic versioning. Phase 1 is `0.1.x`.
+FindingNemos is currently in its initial scaffolding phase. The roadmap represents the path to transforming the runtime into a fully realized, Zig-first local AI substrate.
 
-## Phase 1: Foundation (0.1.x) — CURRENT
+## Phase 1: Identity and Foundation (Current)
+- Establish the `founding/zig-first-substrate` branch.
+- Define the project identity, separating it from upstream NemoClaw.
+- Define the core operator model, security doctrine, and degraded states.
+- Set up the initial documentation and CI/CD pipelines.
 
-- [x] Zig build scaffold
-- [x] CLI binary with 15 commands
-- [x] TOML config parser and validator
-- [x] Egress policy engine (allowlist/denylist/SSRF)
-- [x] Deterministic model router
-- [x] Provider abstractions (Ollama, llama.cpp, vLLM, OpenAI-compatible)
-- [x] Process supervisor skeleton
-- [x] Proofpack evidence collection and export
-- [x] Health check aggregation
-- [x] Credential redaction
-- [x] Docs, CI, smoke tests
+## Phase 2: Contracts, Config, and State
+- Implement the TOML configuration parser.
+- Define strict config validation with fail-closed mechanics.
+- Implement the deterministic state engine and JSON output writer.
+- Redact secrets from all outputs.
 
-## Phase 2: Runtime (0.2.x)
+## Phase 3: Security, Policy, and Proofpacks
+- Build the egress policy engine (allowlists, denylists).
+- Implement SSRF protections for hosted providers.
+- Develop the proofpack generator for irrefutable audit logging.
 
-- [ ] HTTP daemon (replace JSON-over-stdin)
-- [ ] Real process spawning via daemon
-- [ ] Docker container creation and management
-- [ ] Provider health probes (actual HTTP GET)
-- [ ] Worker stdout/stderr capture to log files
-- [ ] Startup timeout enforcement
-- [ ] Resource limit configuration
-- [ ] Config hot-reload
-- [ ] State persistence to disk
-- [ ] Model route tracing with provider response times
+## Phase 4: Daemon and Worker Runtime
+- Build the local daemon (HTTP or JSON-over-stdin).
+- Implement the worker supervisor and lifecycle management.
+- Develop CLI commands for interacting with the daemon and managing workers.
 
-## Phase 3: Hardening (0.3.x)
+## Phase 5: Routing and Telemetry
+- Implement deterministic provider routing (Ollama, llama.cpp, vLLM).
+- Build the host telemetry gathering systems (CPU, RAM, GPU).
+- Ensure graceful degradation of missing dependencies.
 
-- [ ] OpenShell integration and verification
-- [ ] Container security hardening (seccomp, capabilities)
-- [ ] GPU telemetry (nvidia-smi, ROCm)
-- [ ] Memory telemetry (OS-specific probes)
-- [ ] Network namespace isolation
-- [ ] TLS for daemon communication
-- [ ] Audit log persistence
-- [ ] Policy enforcement at network level
-- [ ] Proofpack digital signatures
-
-## Phase 4: Operations (0.4.x)
-
-- [ ] Web UI for operator dashboard
-- [ ] Remote deployment automation
-- [ ] Multi-machine coordination
-- [ ] Channel integrations (Telegram, Discord, Slack)
-- [ ] Backup and restore
-- [ ] Upgrade orchestration
-
-## Not Planned
-
-These are explicitly out of scope for FindingNemos:
-
-- Model training or fine-tuning
-- Dataset management
-- RAG pipelines (application-layer concern)
-- Prompt engineering tools
-- Cloud hosting service
-- Billing or monetization features
-
-## Target Hardware
-
-FindingNemos is designed for local AI labs running on:
-
-- AMD HX370 / Ryzen workstations
-- Intel X99 / HEDT platforms
-- AMD EPYC servers
-- Radxa and ARM SBCs
-- Consumer GPU boxes (NVIDIA, AMD)
-- Headless Linux servers
-- Windows WSL2
-
-The key constraint is that FindingNemos should work on modest hardware. GPU is optional. Docker is optional. The CLI and policy engine work everywhere Zig compiles.
+## Phase 6: Local Lab Hardware Adapters
+- Implement profiles for specific hardware topologies (Radxa control plane, HX370 runtime, X99 worker, generic nodes).
+- Expand hardware discovery capabilities.

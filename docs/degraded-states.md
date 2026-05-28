@@ -1,63 +1,28 @@
-# Degraded States
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 
-## Philosophy
+# FindingNemos Degraded States
 
-FindingNemos never hides missing capabilities. Every component explicitly reports its state. Unknown is a valid, honest state — it means "we haven't checked yet," not "it's probably fine."
+FindingNemos relies on explicit modeling of hardware and software dependencies. When a dependency is unavailable, the subsystem relying on it enters an explicit `degraded` state rather than failing silently or pretending the capability exists.
 
-## State Enums
+## Core States
 
-### Worker States
+FindingNemos uses explicit enums to represent dependency health:
+- `available` / `healthy`
+- `degraded`
+- `unavailable`
+- `unsupported`
+- `unknown`
 
-| State | Meaning |
-|-------|---------|
-| `unknown` | State has not been determined |
-| `configured` | Worker is defined in config but not started |
-| `starting` | Worker process is being spawned |
-| `running` | Worker process has been spawned (pid captured) |
-| `healthy` | Worker is running and responding (future health checks) |
-| `degraded` | Worker is running but not fully functional |
-| `stopping` | Worker is being asked to stop |
-| `stopped` | Worker has exited cleanly (exit code 0) |
-| `failed` | Worker has exited with non-zero exit code |
+## Common Degraded Scenarios
 
-### Sandbox States
+### GPU Telemetry Unavailable
+If `nvidia-smi` or ROCm equivalent tools are missing on a node configured as a GPU worker, the node will not crash. Instead, its telemetry subsystem will report GPU state as `unavailable` or `degraded`, and the router will avoid assigning GPU-bound tasks to it if other constraints apply.
 
-| State | Meaning |
-|-------|---------|
-| `unavailable` | No container runtime detected |
-| `not_configured` | Runtime exists but sandbox not configured |
-| `configured` | Sandbox config present, not yet created |
-| `creating` | Container is being created |
-| `running` | Container is running |
-| `degraded` | Container is running with issues |
-| `stopped` | Container has been stopped |
-| `failed` | Container creation or operation failed |
+### Docker / Sandbox Unavailable
+If a local worker is configured to use Docker for sandboxing, but the Docker daemon is unreachable, the sandbox state becomes `unavailable`. Policy checks will prevent tasks requiring sandboxes from running.
 
-### Provider States
+### Provider Unreachable
+If a configured local model (e.g., Ollama at `http://localhost:11434`) is offline, the provider state becomes `degraded`. The router will bypass this provider and select the next available candidate based on configured priorities.
 
-| State | Meaning |
-|-------|---------|
-| `unavailable` | No endpoint configured or provider disabled |
-| `configured` | Endpoint configured, health not probed |
-| `reachable` | Health probe succeeded |
-| `degraded` | Endpoint responding with errors |
-| `failed` | Health probe failed |
-
-### Policy Decisions
-
-| Decision | Meaning |
-|----------|---------|
-| `allowed` | Request permitted by policy |
-| `denied` | Request blocked by policy |
-| `unknown` | Policy could not determine (missing data) |
-| `unsupported` | Check not supported for this request type |
-
-## Degraded State Handling
-
-When a component is degraded:
-
-1. The state is reported honestly in `status` and `doctor` output
-2. The degraded component is included in proofpack evidence
-3. Commands that depend on the component return exit code 5 (degraded)
-4. The operator is informed of what's degraded and why
-5. Other components continue to function where possible
+## Operator Output
+When querying the system status via `findingnemos status --json`, all degraded states are clearly marked. Proofpacks generated during a degraded window will explicitly log which dependencies were missing to ensure the audit trail is accurate.
