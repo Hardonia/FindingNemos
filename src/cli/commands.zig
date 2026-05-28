@@ -19,8 +19,8 @@ const proofpack_mod = @import("../proof/proofpack.zig");
 const health_mod = @import("../daemon/health.zig");
 const telemetry_sys = @import("../telemetry/system.zig");
 
-const stdout = std.io.getStdOut().writer();
-const stderr = std.io.getStdErr().writer();
+
+
 
 /// Dispatch to the appropriate command handler. Returns the exit code.
 pub fn dispatch(args: cli.ParsedArgs) u8 {
@@ -45,13 +45,13 @@ pub fn dispatch(args: cli.ParsedArgs) u8 {
         return 0;
     }
 
-    stderr.print("error: unknown command '{s}'\n", .{args.command}) catch {};
-    stderr.print("Run 'findingnemos --help' for usage.\n", .{}) catch {};
+    std.io.getStdErr().writer().print("error: unknown command '{s}'\n", .{args.command}) catch {};
+    std.io.getStdErr().writer().print("Run 'findingnemos --help' for usage.\n", .{}) catch {};
     return 2;
 }
 
 fn printHelp() void {
-    stdout.print(
+    std.io.getStdOut().writer().print(
         \\FindingNemos — Zig-first local AI substrate
         \\
         \\USAGE:
@@ -101,9 +101,9 @@ fn cmdVersion(args: cli.ParsedArgs) u8 {
         w.field("version", app_mod.version);
         w.field("language", "zig");
         w.endObject();
-        stdout.print("{s}\n", .{w.getWritten()}) catch {};
+        std.io.getStdOut().writer().print("{s}\n", .{w.getWritten()}) catch {};
     } else {
-        stdout.print("{s} {s}\n", .{ app_mod.name, app_mod.version }) catch {};
+        std.io.getStdOut().writer().print("{s} {s}\n", .{ app_mod.name, app_mod.version }) catch {};
     }
     return 0;
 }
@@ -151,10 +151,10 @@ fn cmdDoctor(args: cli.ParsedArgs) u8 {
         }
         w.endArray();
         w.endObject();
-        stdout.print("{s}\n", .{w.getWritten()}) catch {};
+        std.io.getStdOut().writer().print("{s}\n", .{w.getWritten()}) catch {};
     } else {
-        stdout.print("FindingNemos Doctor\n", .{}) catch {};
-        stdout.print("==================\n\n", .{}) catch {};
+        std.io.getStdOut().writer().print("FindingNemos Doctor\n", .{}) catch {};
+        std.io.getStdOut().writer().print("==================\n\n", .{}) catch {};
         for (report.checks[0..report.check_count]) |maybe_c| {
             if (maybe_c) |c| {
                 const icon: []const u8 = switch (c.status) {
@@ -163,12 +163,12 @@ fn cmdDoctor(args: cli.ParsedArgs) u8 {
                     .unhealthy => "[FAIL]",
                     .unknown => "[??]",
                 };
-                stdout.print("  {s} {s}", .{ icon, c.name }) catch {};
-                if (c.detail) |d| stdout.print(" — {s}", .{d}) catch {};
-                stdout.print("\n", .{}) catch {};
+                std.io.getStdOut().writer().print("  {s} {s}", .{ icon, c.name }) catch {};
+                if (c.detail) |d| std.io.getStdOut().writer().print(" — {s}", .{d}) catch {};
+                std.io.getStdOut().writer().print("\n", .{}) catch {};
             }
         }
-        stdout.print("\nOverall: {s}\n", .{report.status.label()}) catch {};
+        std.io.getStdOut().writer().print("\nOverall: {s}\n", .{report.status.label()}) catch {};
     }
 
     return if (report.status == .unhealthy) 1 else if (report.status == .degraded) @as(u8, 5) else 0;
@@ -204,50 +204,50 @@ fn cmdStatus(args: cli.ParsedArgs) u8 {
         w.beginArray();
         w.endArray();
         w.endObject();
-        stdout.print("{s}\n", .{w.getWritten()}) catch {};
+        std.io.getStdOut().writer().print("{s}\n", .{w.getWritten()}) catch {};
     } else {
-        stdout.print("FindingNemos Status\n", .{}) catch {};
-        stdout.print("===================\n\n", .{}) catch {};
-        stdout.print("  Version:    {s}\n", .{app_mod.version}) catch {};
-        stdout.print("  Phase:      scaffold (Phase 1)\n", .{}) catch {};
-        stdout.print("  Docker:     {s}\n", .{compat.docker_available.label()}) catch {};
-        stdout.print("  OpenShell:  {s}\n", .{compat.openshell_installed.label()}) catch {};
-        stdout.print("  OpenClaw:   {s}\n", .{compat.openclaw_available.label()}) catch {};
+        std.io.getStdOut().writer().print("FindingNemos Status\n", .{}) catch {};
+        std.io.getStdOut().writer().print("===================\n\n", .{}) catch {};
+        std.io.getStdOut().writer().print("  Version:    {s}\n", .{app_mod.version}) catch {};
+        std.io.getStdOut().writer().print("  Phase:      scaffold (Phase 1)\n", .{}) catch {};
+        std.io.getStdOut().writer().print("  Docker:     {s}\n", .{compat.docker_available.label()}) catch {};
+        std.io.getStdOut().writer().print("  OpenShell:  {s}\n", .{compat.openshell_installed.label()}) catch {};
+        std.io.getStdOut().writer().print("  OpenClaw:   {s}\n", .{compat.openclaw_available.label()}) catch {};
         if (snap.cpu_count) |cpus| {
-            stdout.print("  CPUs:       {d}\n", .{cpus}) catch {};
+            std.io.getStdOut().writer().print("  CPUs:       {d}\n", .{cpus}) catch {};
         }
-        stdout.print("  GPU:        {s}\n", .{snap.gpu_available.label()}) catch {};
-        stdout.print("  Workers:    0\n", .{}) catch {};
-        stdout.print("  Providers:  0 configured\n", .{}) catch {};
+        std.io.getStdOut().writer().print("  GPU:        {s}\n", .{snap.gpu_available.label()}) catch {};
+        std.io.getStdOut().writer().print("  Workers:    0\n", .{}) catch {};
+        std.io.getStdOut().writer().print("  Providers:  0 configured\n", .{}) catch {};
     }
     return 0;
 }
 
 // ---- init ----
 fn cmdInit(_: cli.ParsedArgs) u8 {
-    stdout.print("FindingNemos init\n", .{}) catch {};
-    stdout.print("Creating ~/.findingnemos/ directory structure...\n", .{}) catch {};
+    std.io.getStdOut().writer().print("FindingNemos init\n", .{}) catch {};
+    std.io.getStdOut().writer().print("Creating ~/.findingnemos/ directory structure...\n", .{}) catch {};
 
     // Create home directory
     var home_buf: [std.fs.max_path_bytes]u8 = undefined;
     const paths = @import("../core/paths.zig");
     const home = paths.homeDir(&home_buf) catch {
-        stderr.print("error: could not determine home directory\n", .{}) catch {};
+        std.io.getStdErr().writer().print("error: could not determine home directory\n", .{}) catch {};
         return 1;
     };
 
     std.fs.makeDirAbsolute(home) catch |err| switch (err) {
         error.PathAlreadyExists => {
-            stdout.print("  Directory already exists: {s}\n", .{home}) catch {};
+            std.io.getStdOut().writer().print("  Directory already exists: {s}\n", .{home}) catch {};
         },
         else => {
-            stderr.print("error: could not create {s}\n", .{home}) catch {};
+            std.io.getStdErr().writer().print("error: could not create {s}\n", .{home}) catch {};
             return 1;
         },
     };
 
-    stdout.print("  Created: {s}\n", .{home}) catch {};
-    stdout.print("\nDone. Edit ~/.findingnemos/config.toml to configure.\n", .{}) catch {};
+    std.io.getStdOut().writer().print("  Created: {s}\n", .{home}) catch {};
+    std.io.getStdOut().writer().print("\nDone. Edit ~/.findingnemos/config.toml to configure.\n", .{}) catch {};
     return 0;
 }
 
@@ -256,14 +256,14 @@ fn cmdConfig(args: cli.ParsedArgs) u8 {
     if (std.mem.eql(u8, args.subcommand, "validate")) {
         return cmdConfigValidate(args);
     }
-    stderr.print("error: unknown config subcommand '{s}'\n", .{args.subcommand}) catch {};
-    stderr.print("Usage: findingnemos config validate --config <path>\n", .{}) catch {};
+    std.io.getStdErr().writer().print("error: unknown config subcommand '{s}'\n", .{args.subcommand}) catch {};
+    std.io.getStdErr().writer().print("Usage: findingnemos config validate --config <path>\n", .{}) catch {};
     return 2;
 }
 
 fn cmdConfigValidate(args: cli.ParsedArgs) u8 {
     const path = args.config_path orelse {
-        stderr.print("error: --config <path> is required\n", .{}) catch {};
+        std.io.getStdErr().writer().print("error: --config <path> is required\n", .{}) catch {};
         return 2;
     };
 
@@ -271,25 +271,25 @@ fn cmdConfigValidate(args: cli.ParsedArgs) u8 {
 
     // Read the file
     const file = std.fs.cwd().openFile(path, .{}) catch {
-        stderr.print("error: could not open config file: {s}\n", .{path}) catch {};
+        std.io.getStdErr().writer().print("error: could not open config file: {s}\n", .{path}) catch {};
         return 1;
     };
     defer file.close();
 
     const source = file.readToEndAlloc(allocator, 1024 * 1024) catch {
-        stderr.print("error: could not read config file\n", .{}) catch {};
+        std.io.getStdErr().writer().print("error: could not read config file\n", .{}) catch {};
         return 1;
     };
     defer allocator.free(source);
 
     const entries = toml.parse(allocator, source) catch {
-        stderr.print("error: invalid TOML syntax\n", .{}) catch {};
+        std.io.getStdErr().writer().print("error: invalid TOML syntax\n", .{}) catch {};
         return 2;
     };
     defer allocator.free(entries);
 
     const result = validation.validate(allocator, entries) catch {
-        stderr.print("error: validation failed\n", .{}) catch {};
+        std.io.getStdErr().writer().print("error: validation failed\n", .{}) catch {};
         return 10;
     };
     defer allocator.free(result.errors);
@@ -303,18 +303,18 @@ fn cmdConfigValidate(args: cli.ParsedArgs) u8 {
         w.fieldInt("errors", @intCast(result.errors.len));
         w.fieldInt("warnings", @intCast(result.warnings.len));
         w.endObject();
-        stdout.print("{s}\n", .{w.getWritten()}) catch {};
+        std.io.getStdOut().writer().print("{s}\n", .{w.getWritten()}) catch {};
     } else {
         if (result.is_valid) {
-            stdout.print("Config valid: {s}\n", .{path}) catch {};
+            std.io.getStdOut().writer().print("Config valid: {s}\n", .{path}) catch {};
         } else {
-            stdout.print("Config INVALID: {s}\n", .{path}) catch {};
+            std.io.getStdOut().writer().print("Config INVALID: {s}\n", .{path}) catch {};
         }
         for (result.errors) |e| {
-            stdout.print("  ERROR [{s}].{s}: {s}\n", .{ e.section, e.key, e.message }) catch {};
+            std.io.getStdOut().writer().print("  ERROR [{s}].{s}: {s}\n", .{ e.section, e.key, e.message }) catch {};
         }
         for (result.warnings) |w_entry| {
-            stdout.print("  WARN  [{s}].{s}: {s}\n", .{ w_entry.section, w_entry.key, w_entry.message }) catch {};
+            std.io.getStdOut().writer().print("  WARN  [{s}].{s}: {s}\n", .{ w_entry.section, w_entry.key, w_entry.message }) catch {};
         }
     }
 
@@ -324,10 +324,10 @@ fn cmdConfigValidate(args: cli.ParsedArgs) u8 {
 // ---- daemon ----
 fn cmdDaemon(args: cli.ParsedArgs) u8 {
     if (std.mem.eql(u8, args.subcommand, "run")) {
-        stdout.print("FindingNemos daemon starting...\n", .{}) catch {};
-        stdout.print("Phase 1: JSON-over-stdin protocol (HTTP server planned for Phase 2)\n", .{}) catch {};
-        stdout.print("Listening on stdin. Send JSON commands, one per line.\n", .{}) catch {};
-        stdout.print("Type {{\"command\":\"health\"}} to test.\n", .{}) catch {};
+        std.io.getStdOut().writer().print("FindingNemos daemon starting...\n", .{}) catch {};
+        std.io.getStdOut().writer().print("Phase 1: JSON-over-stdin protocol (HTTP server planned for Phase 2)\n", .{}) catch {};
+        std.io.getStdOut().writer().print("Listening on stdin. Send JSON commands, one per line.\n", .{}) catch {};
+        std.io.getStdOut().writer().print("Type {{\"command\":\"health\"}} to test.\n", .{}) catch {};
         // In Phase 1, we just report that the daemon would run here.
         // Actual stdin loop is deferred to avoid blocking in the scaffold.
         return 0;
@@ -340,14 +340,14 @@ fn cmdDaemon(args: cli.ParsedArgs) u8 {
             w.field("daemon", "not_running");
             w.field("protocol", "json-over-stdin");
             w.endObject();
-            stdout.print("{s}\n", .{w.getWritten()}) catch {};
+            std.io.getStdOut().writer().print("{s}\n", .{w.getWritten()}) catch {};
         } else {
-            stdout.print("Daemon: not running\n", .{}) catch {};
-            stdout.print("Protocol: json-over-stdin (Phase 1)\n", .{}) catch {};
+            std.io.getStdOut().writer().print("Daemon: not running\n", .{}) catch {};
+            std.io.getStdOut().writer().print("Protocol: json-over-stdin (Phase 1)\n", .{}) catch {};
         }
         return 0;
     }
-    stderr.print("error: unknown daemon subcommand '{s}'\n", .{args.subcommand}) catch {};
+    std.io.getStdErr().writer().print("error: unknown daemon subcommand '{s}'\n", .{args.subcommand}) catch {};
     return 2;
 }
 
@@ -355,42 +355,42 @@ fn cmdDaemon(args: cli.ParsedArgs) u8 {
 fn cmdWorker(args: cli.ParsedArgs) u8 {
     if (std.mem.eql(u8, args.subcommand, "list")) {
         if (args.json_output) {
-            stdout.print("{{\"workers\":[]}}\n", .{}) catch {};
+            std.io.getStdOut().writer().print("{{\"workers\":[]}}\n", .{}) catch {};
         } else {
-            stdout.print("No workers configured.\n", .{}) catch {};
+            std.io.getStdOut().writer().print("No workers configured.\n", .{}) catch {};
         }
         return 0;
     }
     if (std.mem.eql(u8, args.subcommand, "start")) {
         const name = args.name orelse {
-            stderr.print("error: --name is required\n", .{}) catch {};
+            std.io.getStdErr().writer().print("error: --name is required\n", .{}) catch {};
             return 2;
         };
         const cmd = args.cmd orelse {
-            stderr.print("error: --cmd is required\n", .{}) catch {};
+            std.io.getStdErr().writer().print("error: --cmd is required\n", .{}) catch {};
             return 2;
         };
-        stdout.print("Would start worker '{s}' with command: {s}\n", .{ name, cmd }) catch {};
-        stdout.print("Note: process spawning requires daemon to be running (Phase 2)\n", .{}) catch {};
+        std.io.getStdOut().writer().print("Would start worker '{s}' with command: {s}\n", .{ name, cmd }) catch {};
+        std.io.getStdOut().writer().print("Note: process spawning requires daemon to be running (Phase 2)\n", .{}) catch {};
         return 0;
     }
     if (std.mem.eql(u8, args.subcommand, "stop")) {
         const name = args.name orelse {
-            stderr.print("error: --name is required\n", .{}) catch {};
+            std.io.getStdErr().writer().print("error: --name is required\n", .{}) catch {};
             return 2;
         };
-        stdout.print("Would stop worker '{s}'\n", .{name}) catch {};
+        std.io.getStdOut().writer().print("Would stop worker '{s}'\n", .{name}) catch {};
         return 0;
     }
     if (std.mem.eql(u8, args.subcommand, "logs")) {
         const name = args.name orelse {
-            stderr.print("error: --name is required\n", .{}) catch {};
+            std.io.getStdErr().writer().print("error: --name is required\n", .{}) catch {};
             return 2;
         };
-        stdout.print("No logs available for worker '{s}' (no workers running)\n", .{name}) catch {};
+        std.io.getStdOut().writer().print("No logs available for worker '{s}' (no workers running)\n", .{name}) catch {};
         return 0;
     }
-    stderr.print("error: unknown worker subcommand '{s}'\n", .{args.subcommand}) catch {};
+    std.io.getStdErr().writer().print("error: unknown worker subcommand '{s}'\n", .{args.subcommand}) catch {};
     return 2;
 }
 
@@ -421,22 +421,22 @@ fn cmdModel(args: cli.ParsedArgs) u8 {
             }
             w.endArray();
             w.endObject();
-            stdout.print("{s}\n", .{w.getWritten()}) catch {};
+            std.io.getStdOut().writer().print("{s}\n", .{w.getWritten()}) catch {};
         } else {
-            stdout.print("Model Providers\n", .{}) catch {};
-            stdout.print("===============\n\n", .{}) catch {};
+            std.io.getStdOut().writer().print("Model Providers\n", .{}) catch {};
+            std.io.getStdOut().writer().print("===============\n\n", .{}) catch {};
             for (providers) |p| {
-                stdout.print("  {s}: {s} ({s})\n", .{ p.name, p.state.label(), p.kind.label() }) catch {};
+                std.io.getStdOut().writer().print("  {s}: {s} ({s})\n", .{ p.name, p.state.label(), p.kind.label() }) catch {};
             }
         }
         return 0;
     }
     if (std.mem.eql(u8, args.subcommand, "route")) {
-        stdout.print("Model routing: no providers configured/reachable\n", .{}) catch {};
-        stdout.print("Configure providers in config.toml under [models]\n", .{}) catch {};
+        std.io.getStdOut().writer().print("Model routing: no providers configured/reachable\n", .{}) catch {};
+        std.io.getStdOut().writer().print("Configure providers in config.toml under [models]\n", .{}) catch {};
         return 3;
     }
-    stderr.print("error: unknown model subcommand '{s}'\n", .{args.subcommand}) catch {};
+    std.io.getStdErr().writer().print("error: unknown model subcommand '{s}'\n", .{args.subcommand}) catch {};
     return 2;
 }
 
@@ -444,7 +444,7 @@ fn cmdModel(args: cli.ParsedArgs) u8 {
 fn cmdPolicy(args: cli.ParsedArgs) u8 {
     if (std.mem.eql(u8, args.subcommand, "check")) {
         const host = args.host orelse {
-            stderr.print("error: --host is required\n", .{}) catch {};
+            std.io.getStdErr().writer().print("error: --host is required\n", .{}) catch {};
             return 2;
         };
 
@@ -470,7 +470,7 @@ fn cmdPolicy(args: cli.ParsedArgs) u8 {
                     } else |_| {}
                 } else |_| {}
             } else |_| {
-                stderr.print("warning: could not open policy config: {s}\n", .{path}) catch {};
+                std.io.getStdErr().writer().print("warning: could not open policy config: {s}\n", .{path}) catch {};
             }
         }
 
@@ -484,7 +484,7 @@ fn cmdPolicy(args: cli.ParsedArgs) u8 {
             w.field("decision", result.decision.label());
             w.field("reason", result.reason);
             w.endObject();
-            stdout.print("{s}\n", .{w.getWritten()}) catch {};
+            std.io.getStdOut().writer().print("{s}\n", .{w.getWritten()}) catch {};
         } else {
             const icon: []const u8 = switch (result.decision) {
                 .allowed => "[ALLOW]",
@@ -492,7 +492,7 @@ fn cmdPolicy(args: cli.ParsedArgs) u8 {
                 .unknown => "[??]",
                 .unsupported => "[N/A]",
             };
-            stdout.print("{s} {s} — {s}\n", .{ icon, host, result.reason }) catch {};
+            std.io.getStdOut().writer().print("{s} {s} — {s}\n", .{ icon, host, result.reason }) catch {};
         }
 
         return switch (result.decision) {
@@ -502,7 +502,7 @@ fn cmdPolicy(args: cli.ParsedArgs) u8 {
             .unsupported => 3,
         };
     }
-    stderr.print("error: unknown policy subcommand '{s}'\n", .{args.subcommand}) catch {};
+    std.io.getStdErr().writer().print("error: unknown policy subcommand '{s}'\n", .{args.subcommand}) catch {};
     return 2;
 }
 
@@ -510,7 +510,7 @@ fn cmdPolicy(args: cli.ParsedArgs) u8 {
 fn cmdProofpack(args: cli.ParsedArgs) u8 {
     if (std.mem.eql(u8, args.subcommand, "export")) {
         const out_dir = args.out orelse {
-            stderr.print("error: --out <path> is required\n", .{}) catch {};
+            std.io.getStdErr().writer().print("error: --out <path> is required\n", .{}) catch {};
             return 2;
         };
 
@@ -521,7 +521,7 @@ fn cmdProofpack(args: cli.ParsedArgs) u8 {
 
         // Create output directory
         std.fs.cwd().makePath(out_dir) catch {
-            stderr.print("error: could not create output directory: {s}\n", .{out_dir}) catch {};
+            std.io.getStdErr().writer().print("error: could not create output directory: {s}\n", .{out_dir}) catch {};
             return 1;
         };
 
@@ -536,9 +536,9 @@ fn cmdProofpack(args: cli.ParsedArgs) u8 {
             if (std.fs.cwd().createFile(json_path, .{})) |f| {
                 defer f.close();
                 f.writeAll(json_content) catch {};
-                stdout.print("  Written: {s}\n", .{json_path}) catch {};
+                std.io.getStdOut().writer().print("  Written: {s}\n", .{json_path}) catch {};
             } else |_| {
-                stderr.print("error: could not write proofpack.json\n", .{}) catch {};
+                std.io.getStdErr().writer().print("error: could not write proofpack.json\n", .{}) catch {};
                 return 1;
             }
         }
@@ -554,16 +554,16 @@ fn cmdProofpack(args: cli.ParsedArgs) u8 {
             if (std.fs.cwd().createFile(md_path, .{})) |f| {
                 defer f.close();
                 f.writeAll(md_content) catch {};
-                stdout.print("  Written: {s}\n", .{md_path}) catch {};
+                std.io.getStdOut().writer().print("  Written: {s}\n", .{md_path}) catch {};
             } else |_| {
-                stderr.print("error: could not write proofpack.md\n", .{}) catch {};
+                std.io.getStdErr().writer().print("error: could not write proofpack.md\n", .{}) catch {};
                 return 1;
             }
         }
 
-        stdout.print("\nProofpack exported to: {s}\n", .{out_dir}) catch {};
+        std.io.getStdOut().writer().print("\nProofpack exported to: {s}\n", .{out_dir}) catch {};
         return 0;
     }
-    stderr.print("error: unknown proofpack subcommand '{s}'\n", .{args.subcommand}) catch {};
+    std.io.getStdErr().writer().print("error: unknown proofpack subcommand '{s}'\n", .{args.subcommand}) catch {};
     return 2;
 }

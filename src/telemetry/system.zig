@@ -10,7 +10,7 @@ const time = @import("../core/time.zig");
 pub fn snapshot() state.TelemetrySnapshot {
     return .{
         .timestamp_epoch = time.epochSeconds(),
-        .cpu_count = std.Thread.getCpuCount() catch null,
+        .cpu_count = if (std.Thread.getCpuCount() catch null) |c| @intCast(c) else null,
         .memory_total_bytes = null, // Requires OS-specific probe (Phase 2)
         .memory_available_bytes = null,
         .gpu_available = .unknown,
