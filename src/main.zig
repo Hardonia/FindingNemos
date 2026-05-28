@@ -8,18 +8,15 @@ const std = @import("std");
 const cli = @import("cli/cli.zig");
 const commands = @import("cli/commands.zig");
 
-pub fn main(init: std.process.Init) !u8 {
-    const allocator = init.arena.allocator();
+pub fn main() u8 {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
 
-    var args_list = std.ArrayList([:0]const u8).empty;
-    var arg_it = init.args.iterate();
-    while (arg_it.next()) |arg| {
-        // arg from iterate() might be []const u8 or [:0]const u8.
-        // Assuming it's [:0]const u8 for now.
-        try args_list.append(allocator, arg);
-    }
-
-    const args = args_list.items;
+    const args = std.process.argsAlloc(arena.allocator()) catch {
+        const w = std.io.getStdErr().writer();
+        w.print("error: could not read arguments\n", .{}) catch {};
+        return 10;
+    };
 
     const parsed = cli.parse(args);
     return commands.dispatch(parsed);
