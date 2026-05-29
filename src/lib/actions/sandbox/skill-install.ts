@@ -146,7 +146,7 @@ export async function installSandboxSkill(
     process.exit(1);
   }
 
-  const collected = skillInstall.collectFiles(skillDir);
+  const collected = await skillInstall.collectFiles(skillDir);
   if (collected.unsafePaths.length > 0) {
     console.error("  Skill directory contains files with unsafe characters:");
     for (const p of collected.unsafePaths) console.error(`    ${p}`);
@@ -191,7 +191,7 @@ export async function installSandboxSkill(
     const isUpdate = skillInstall.checkExisting(ctx, paths);
 
     // 6. Upload skill directory
-    const { uploaded, failed } = skillInstall.uploadDirectory(ctx, skillDir, paths.uploadDir);
+    const { uploaded, failed } = await skillInstall.uploadDirectory(ctx, skillDir, paths.uploadDir);
     if (failed.length > 0) {
       console.error(`  Failed to upload ${failed.length} file(s): ${failed.join(", ")}`);
       process.exit(1);

@@ -132,10 +132,10 @@ describe("collectFiles", () => {
     if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
   }
 
-  it("collects a single SKILL.md", () => {
+  it("collects a single SKILL.md", async () => {
     setup({ "SKILL.md": "---\nname: solo\n---\n" });
     try {
-      const { files, skippedDotfiles, unsafePaths } = collectFiles(tmpDir);
+      const { files, skippedDotfiles, unsafePaths } = await collectFiles(tmpDir);
       expect(files).toEqual(["SKILL.md"]);
       expect(skippedDotfiles).toEqual([]);
       expect(unsafePaths).toEqual([]);
@@ -144,14 +144,14 @@ describe("collectFiles", () => {
     }
   });
 
-  it("collects SKILL.md plus nested scripts, skips dotfiles", () => {
+  it("collects SKILL.md plus nested scripts, skips dotfiles", async () => {
     setup({
       "SKILL.md": "---\nname: rich\n---\n",
       "scripts/helper.js": "console.log('hi')",
       ".env": "KEY=val",
     });
     try {
-      const { files, skippedDotfiles } = collectFiles(tmpDir);
+      const { files, skippedDotfiles } = await collectFiles(tmpDir);
       expect(files.sort()).toEqual(["SKILL.md", "scripts/helper.js"]);
       expect(skippedDotfiles).toEqual([".env"]);
     } finally {
@@ -159,7 +159,7 @@ describe("collectFiles", () => {
     }
   });
 
-  it("reports hidden directories in skippedDotfiles", () => {
+  it("reports hidden directories in skippedDotfiles", async () => {
     setup({
       "SKILL.md": "---\nname: safe\n---\n",
       ".secret/token.txt": "secret-value",
@@ -167,7 +167,7 @@ describe("collectFiles", () => {
       "scripts/.hidden.sh": "#!/bin/sh",
     });
     try {
-      const { files, skippedDotfiles } = collectFiles(tmpDir);
+      const { files, skippedDotfiles } = await collectFiles(tmpDir);
       expect(files.sort()).toEqual(["SKILL.md", "scripts/visible.sh"]);
       expect(skippedDotfiles.sort()).toEqual([".secret/", "scripts/.hidden.sh"]);
     } finally {
@@ -175,13 +175,13 @@ describe("collectFiles", () => {
     }
   });
 
-  it("flags files with unsafe characters", () => {
+  it("flags files with unsafe characters", async () => {
     setup({
       "SKILL.md": "---\nname: bad\n---\n",
       "has space.txt": "content",
     });
     try {
-      const { files, unsafePaths } = collectFiles(tmpDir);
+      const { files, unsafePaths } = await collectFiles(tmpDir);
       expect(files).toEqual(["SKILL.md"]);
       expect(unsafePaths).toEqual(["has space.txt"]);
     } finally {
