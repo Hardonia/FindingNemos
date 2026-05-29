@@ -86,6 +86,33 @@ emit_sandbox_sourced_file() {
   fi
 }
 
+# Create a log file with specific ownership and permissions, using safe temp
+# file creation and atomic rename to avoid symlink/truncation races.
+#
+# Usage:
+#   emit_restricted_log /path/to/log <owner>:<group> <mode>
+#
+# Example:
+#   emit_restricted_log /tmp/gateway.log gateway:gateway 644
+emit_restricted_log() {
+  local path="$1"
+  local owner="$2"
+  local mode="$3"
+  local dir base tmp
+
+  dir="$(dirname "$path")"
+  base="$(basename "$path")"
+  tmp="$(mktemp "${dir}/.${base}.tmp.XXXXXX")" || return 1
+
+  if ! chmod "$mode" "$tmp"; then rm -f "$tmp"; return 1; fi
+  if [ "$(id -u)" -eq 0 ] && [ -n "$owner" ]; then
+    if ! chown "$owner" "$tmp"; then rm -f "$tmp"; return 1; fi
+  fi
+
+  # Atomically replace any existing file.
+  if ! mv -f "$tmp" "$path"; then rm -f "$tmp"; return 1; fi
+}
+
 # Verify that trust-boundary files in /tmp have the expected permissions
 # BEFORE handing off to the sandbox user. Call this after all init work
 # and before launching services. Defence-in-depth: catches regressions
