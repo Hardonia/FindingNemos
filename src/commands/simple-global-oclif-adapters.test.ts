@@ -188,6 +188,41 @@ describe("simple global oclif adapters", () => {
     }
   });
 
+
+  it("uses process.exitCode when the dashboard-url action fails with DashboardUrlCommandError", async () => {
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.runDashboardUrlCommand.mockImplementationOnce(() => {
+      throw new mocks.DashboardUrlCommandError(["dashboard error line 1", "dashboard error line 2"], 2);
+    });
+    setDashboardUrlRuntimeBridgeFactoryForTest(() => ({
+      fetchGatewayAuthTokenFromSandbox: mocks.fetchGatewayAuthTokenFromSandbox,
+      getSandbox: () => ({ agent: "openclaw", dashboardPort: 18789 }),
+    }));
+    const previousExitCode = process.exitCode;
+    process.exitCode = undefined;
+    try {
+      await expect(DashboardUrlCliCommand.run(["alpha"], rootDir)).resolves.toBeUndefined();
+      expect(process.exitCode).toBe(2);
+      expect(errorLog).toHaveBeenCalledWith("dashboard error line 1");
+      expect(errorLog).toHaveBeenCalledWith("dashboard error line 2");
+    } finally {
+      process.exitCode = previousExitCode;
+      errorLog.mockRestore();
+    }
+  });
+
+  it("rethrows unknown errors from dashboard-url command", async () => {
+    const unknownError = new Error("Unknown error");
+    mocks.runDashboardUrlCommand.mockImplementationOnce(() => {
+      throw unknownError;
+    });
+    setDashboardUrlRuntimeBridgeFactoryForTest(() => ({
+      fetchGatewayAuthTokenFromSandbox: mocks.fetchGatewayAuthTokenFromSandbox,
+      getSandbox: () => ({ agent: "openclaw", dashboardPort: 18789 }),
+    }));
+    await expect(DashboardUrlCliCommand.run(["alpha"], rootDir)).rejects.toThrow("Unknown error");
+  });
+
   it("clears a stale non-zero process.exitCode on a successful gateway-token run", async () => {
     // CodeRabbit #3182: if a prior run() left process.exitCode = 1, a later
     // successful invocation must still report success. Always overwrite.
