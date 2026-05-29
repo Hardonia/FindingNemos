@@ -86,7 +86,7 @@ describe("stopStaleDashboardListeners", () => {
     const kill = vi.fn<(pid: number, signal?: NodeJS.Signals | number) => boolean>(() => true);
     let pidGone = false;
     const responses = new Map<string, RunResult | ((args: string[]) => RunResult)>([
-      ["lsof -ti :18789 -sTCP:LISTEN", { status: 0, stdout: "2522044\n", stderr: "" }],
+      ["lsof -i :18789-18799 -sTCP:LISTEN -P -n -F pn", { status: 0, stdout: "p2522044\nn*:18789\n", stderr: "" }],
       [
         "ps -p 2522044 -o user=",
         { status: 0, stdout: "tester\n", stderr: "" },
@@ -119,7 +119,7 @@ describe("stopStaleDashboardListeners", () => {
     const sentSignals: NodeJS.Signals[] = [];
     let pidGone = false;
     const responses = new Map<string, RunResult | ((args: string[]) => RunResult)>([
-      ["lsof -ti :18789 -sTCP:LISTEN", { status: 0, stdout: "999\n", stderr: "" }],
+      ["lsof -i :18789-18799 -sTCP:LISTEN -P -n -F pn", { status: 0, stdout: "p999\nn*:18789\n", stderr: "" }],
       ["ps -p 999 -o user=", { status: 0, stdout: "tester\n", stderr: "" }],
       [
         "ps -p 999 -o args=",
@@ -146,7 +146,7 @@ describe("stopStaleDashboardListeners", () => {
   it("skips PIDs owned by another user", () => {
     const kill = vi.fn(() => true);
     const responses = new Map<string, RunResult | ((args: string[]) => RunResult)>([
-      ["lsof -ti :18789 -sTCP:LISTEN", { status: 0, stdout: "42\n", stderr: "" }],
+      ["lsof -i :18789-18799 -sTCP:LISTEN -P -n -F pn", { status: 0, stdout: "p42\nn*:18789\n", stderr: "" }],
       ["ps -p 42 -o user=", { status: 0, stdout: "root\n", stderr: "" }],
     ]);
     const { run } = makeRun(responses);
@@ -160,7 +160,7 @@ describe("stopStaleDashboardListeners", () => {
   it("does not kill listeners on ports protected by registered sandboxes (#3260)", () => {
     const kill = vi.fn(() => true);
     const responses = new Map<string, RunResult | ((args: string[]) => RunResult)>([
-      ["lsof -ti :18789 -sTCP:LISTEN", { status: 0, stdout: "4242\n", stderr: "" }],
+      ["lsof -i :18789-18799 -sTCP:LISTEN -P -n -F pn", { status: 0, stdout: "p4242\nn*:18789\n", stderr: "" }],
     ]);
     const { run, calls } = makeRun(responses);
     const result = stopStaleDashboardListeners(
@@ -177,8 +177,7 @@ describe("stopStaleDashboardListeners", () => {
   it("does not revisit a PID seen on a protected port when it also appears on an unprotected port", () => {
     const kill = vi.fn(() => true);
     const responses = new Map<string, RunResult | ((args: string[]) => RunResult)>([
-      ["lsof -ti :18789 -sTCP:LISTEN", { status: 0, stdout: "777\n", stderr: "" }],
-      ["lsof -ti :18790 -sTCP:LISTEN", { status: 0, stdout: "777\n", stderr: "" }],
+      ["lsof -i :18789-18799 -sTCP:LISTEN -P -n -F pn", { status: 0, stdout: "p777\nn*:18789\nn*:18790\n", stderr: "" }],
     ]);
     const { run } = makeRun(responses);
     const result = stopStaleDashboardListeners(
@@ -193,7 +192,7 @@ describe("stopStaleDashboardListeners", () => {
   it("skips PIDs whose cmdline does not match a gateway marker", () => {
     const kill = vi.fn(() => true);
     const responses = new Map<string, RunResult | ((args: string[]) => RunResult)>([
-      ["lsof -ti :18789 -sTCP:LISTEN", { status: 0, stdout: "777\n", stderr: "" }],
+      ["lsof -i :18789-18799 -sTCP:LISTEN -P -n -F pn", { status: 0, stdout: "p777\nn*:18789\n", stderr: "" }],
       ["ps -p 777 -o user=", { status: 0, stdout: "tester\n", stderr: "" }],
       ["ps -p 777 -o args=", { status: 0, stdout: "python -m http.server 18789\n", stderr: "" }],
     ]);
@@ -208,8 +207,7 @@ describe("stopStaleDashboardListeners", () => {
   it("does not double-process a PID that appears on multiple ports in the range", () => {
     let pidGone = false;
     const responses = new Map<string, RunResult | ((args: string[]) => RunResult)>([
-      ["lsof -ti :18789 -sTCP:LISTEN", { status: 0, stdout: "501\n", stderr: "" }],
-      ["lsof -ti :18790 -sTCP:LISTEN", { status: 0, stdout: "501\n", stderr: "" }],
+      ["lsof -i :18789-18799 -sTCP:LISTEN -P -n -F pn", { status: 0, stdout: "p501\nn*:18789\nn*:18790\n", stderr: "" }],
       ["ps -p 501 -o user=", { status: 0, stdout: "tester\n", stderr: "" }],
       ["ps -p 501 -o args=", { status: 0, stdout: "openclaw-gateway\n", stderr: "" }],
       [
