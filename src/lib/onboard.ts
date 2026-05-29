@@ -5995,9 +5995,11 @@ async function selectTierPresetsAndAccess(
   // Tier presets first (in tier order), then the rest in their original order.
   const tierNames = tierDef ? tierDef.presets.map((p) => p.name) : [];
   const tierSet = new Set(tierNames);
+  const allPresetsByName = new Map(allPresets.map((p) => [p.name, p]));
+
   const ordered: Array<{ name: string; description?: string }> = [
     ...tierNames
-      .map((name) => allPresets.find((p) => p.name === name))
+      .map((name) => allPresetsByName.get(name))
       .filter((p): p is { name: string; description?: string } => Boolean(p)),
     ...allPresets.filter((p) => !tierSet.has(p.name)),
   ];
@@ -6005,7 +6007,7 @@ async function selectTierPresetsAndAccess(
   // Initial inclusion: tier presets + any already-applied extras.
   const included = new Set([
     ...tierNames,
-    ...extraSelected.filter((n) => ordered.find((p) => p.name === n)),
+    ...extraSelected.filter((n) => allPresetsByName.has(n)),
   ]);
 
   // Access levels: tier defaults for tier presets, read-write default for others.
