@@ -1,0 +1,4 @@
+🎯 **What:** The code health issue addressed was the overly complex `executeDeploy` function in `src/lib/deploy/index.ts`, which handled everything from creating Brev instances to SSH connections, file syncs, and remote setup.
+💡 **Why:** Long functions are difficult to maintain and understand. Extracting logical chunks into standalone helpers makes the main orchestration function shorter, cleaner, and improves overall codebase readability.
+✅ **Verification:** Ran `npx vitest run src/lib/deploy/index.test.ts` to ensure all existing tests pass and no functionality was broken. Also ran format and lint checks (`npm run format`, `npm run lint`).
+✨ **Result:** The `executeDeploy` function length and complexity are significantly reduced. It now coordinates five focused, well-named helper functions (`ensureBrevInstance`, `waitForBrevInstance`, `setupSshKnownHosts`, `syncFilesToRemote`, `runRemoteInstallationAndServices`).
