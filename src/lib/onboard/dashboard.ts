@@ -215,27 +215,27 @@ export function createOnboardDashboardHelpers(deps: OnboardDashboardDeps): Onboa
     process.exit(1);
   }
 
-  function ensureDashboardForward(
+  function stopForwardForSandbox(sandboxName: string, port: string | number) {
+    return bestEffortForwardStopForSandbox(
+      deps.runOpenshell,
+      (args, opts) => (deps.runCaptureOpenshell(args, opts) ?? "") as string,
+      port,
+      sandboxName,
+    );
+  }
+
+  function resolveActualDashboardPort(
     sandboxName: string,
-    chatUiUrl = `http://127.0.0.1:${CONTROL_UI_PORT}`,
-    options: { rollbackSandboxOnFailure?: boolean } = {},
+    preferredPort: number,
+    rollbackSandboxOnFailure: boolean,
   ): number {
-    const { rollbackSandboxOnFailure = false } = options;
-    const preferredPort = Number(getDashboardForwardPort(chatUiUrl));
-    const stopForwardForSandbox = (port: string | number) =>
-      bestEffortForwardStopForSandbox(
-        deps.runOpenshell,
-        (args, opts) => (deps.runCaptureOpenshell(args, opts) ?? "") as string,
-        port,
-        sandboxName,
-      );
     let existingForwards = deps.runCaptureOpenshell(["forward", "list"], { ignoreError: true });
     const preferredEntry = findForwardEntry(existingForwards, String(preferredPort));
     if (
       preferredEntry &&
       (preferredEntry.sandboxName === sandboxName || !isLiveForwardStatus(preferredEntry.status))
     ) {
-      stopForwardForSandbox(preferredPort);
+      stopForwardForSandbox(sandboxName, preferredPort);
       existingForwards = deps.runCaptureOpenshell(["forward", "list"], { ignoreError: true });
     }
     let actualPort: number;
@@ -262,14 +262,50 @@ export function createOnboardDashboardHelpers(deps: OnboardDashboardDeps): Onboa
     const occupied = getOccupiedPorts(existingForwards);
     for (const [port, owner] of occupied.entries()) {
       if (owner === sandboxName && Number(port) !== actualPort) {
-        stopForwardForSandbox(port);
+        stopForwardForSandbox(sandboxName, port);
       }
     }
+    return actualPort;
+  }
 
-    const parsedUrl = new URL(chatUiUrl.includes("://") ? chatUiUrl : `http://${chatUiUrl}`);
-    parsedUrl.port = String(actualPort);
-    const actualTarget = getDashboardForwardTarget(parsedUrl.toString());
-    stopForwardForSandbox(actualPort);
+  function handleForwardStartFailure(
+    sandboxName: string,
+    actualPort: number,
+    fwdDiagnostic: string,
+    rollbackSandboxOnFailure: boolean,
+  ) {
+    const looksLikePortConflict = looksLikeForwardPortConflict(fwdDiagnostic);
+    if (rollbackSandboxOnFailure) {
+      const err = new Error(
+        looksLikePortConflict
+          ? `Failed to start dashboard forward on port ${actualPort} — the host port ` +
+              `is held by another process. Free it and run \`${deps.cliName()} onboard\` again, ` +
+              `or pass \`--control-ui-port <N>\` to pick a different dashboard port.`
+          : `Failed to start dashboard forward on port ${actualPort}: ${fwdDiagnostic.slice(0, 240)}`,
+      );
+      rollbackSandboxAndExit(sandboxName, err);
+    }
+    if (looksLikePortConflict) {
+      console.warn(
+        `! Port ${actualPort} forward did not start — port may be in use by another process.`,
+      );
+      console.warn(
+        `  Check: docker ps --format 'table {{.Names}}\t{{.Ports}}' | grep ${actualPort}`,
+      );
+      console.warn(`  Free the port, then reconnect: ${deps.cliName()} ${sandboxName} connect`);
+    } else {
+      console.warn(`! Port ${actualPort} forward did not start: ${fwdDiagnostic.slice(0, 240)}`);
+      console.warn(`  Reconnect after resolving the issue: ${deps.cliName()} ${sandboxName} connect`);
+    }
+  }
+
+  function startDashboardForward(
+    sandboxName: string,
+    actualTarget: string,
+    actualPort: number,
+    rollbackSandboxOnFailure: boolean,
+  ) {
+    stopForwardForSandbox(sandboxName, actualPort);
     const { ok: fwdOk, diagnostic: fwdDiagnostic } = runDetachedForwardStartWithPortReleaseRetries(
       buildDetachedForwardStartSpawn(
         deps.openshellArgv(["forward", "start", "--background", actualTarget, sandboxName]),
@@ -279,35 +315,31 @@ export function createOnboardDashboardHelpers(deps: OnboardDashboardDeps): Onboa
       { port: actualPort, sandboxName },
       () => {
         deps.sleep(1);
-        stopForwardForSandbox(actualPort);
+        stopForwardForSandbox(sandboxName, actualPort);
       },
       { onProgress: buildForwardStartProgressLogger(actualPort) },
     );
     if (!fwdOk) {
-      const looksLikePortConflict = looksLikeForwardPortConflict(fwdDiagnostic);
-      if (rollbackSandboxOnFailure) {
-        const err = new Error(
-          looksLikePortConflict
-            ? `Failed to start dashboard forward on port ${actualPort} — the host port ` +
-                `is held by another process. Free it and run \`${deps.cliName()} onboard\` again, ` +
-                `or pass \`--control-ui-port <N>\` to pick a different dashboard port.`
-            : `Failed to start dashboard forward on port ${actualPort}: ${fwdDiagnostic.slice(0, 240)}`,
-        );
-        rollbackSandboxAndExit(sandboxName, err);
-      }
-      if (looksLikePortConflict) {
-        console.warn(
-          `! Port ${actualPort} forward did not start — port may be in use by another process.`,
-        );
-        console.warn(
-          `  Check: docker ps --format 'table {{.Names}}\\t{{.Ports}}' | grep ${actualPort}`,
-        );
-        console.warn(`  Free the port, then reconnect: ${deps.cliName()} ${sandboxName} connect`);
-      } else {
-        console.warn(`! Port ${actualPort} forward did not start: ${fwdDiagnostic.slice(0, 240)}`);
-        console.warn(`  Reconnect after resolving the issue: ${deps.cliName()} ${sandboxName} connect`);
-      }
+      handleForwardStartFailure(sandboxName, actualPort, fwdDiagnostic, rollbackSandboxOnFailure);
     }
+  }
+
+  function ensureDashboardForward(
+    sandboxName: string,
+    chatUiUrl = `http://127.0.0.1:${CONTROL_UI_PORT}`,
+    options: { rollbackSandboxOnFailure?: boolean } = {},
+  ): number {
+    const { rollbackSandboxOnFailure = false } = options;
+    const preferredPort = Number(getDashboardForwardPort(chatUiUrl));
+
+    const actualPort = resolveActualDashboardPort(sandboxName, preferredPort, rollbackSandboxOnFailure);
+
+    const parsedUrl = new URL(chatUiUrl.includes("://") ? chatUiUrl : `http://${chatUiUrl}`);
+    parsedUrl.port = String(actualPort);
+    const actualTarget = getDashboardForwardTarget(parsedUrl.toString());
+
+    startDashboardForward(sandboxName, actualTarget, actualPort, rollbackSandboxOnFailure);
+
     return actualPort;
   }
 
