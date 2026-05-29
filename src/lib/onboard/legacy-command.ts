@@ -3,7 +3,6 @@
 
 import fs from "node:fs";
 import path from "node:path";
-
 import { CLI_NAME } from "../cli/branding";
 
 export interface OnboardCommandOptions {
@@ -77,16 +76,12 @@ function printOnboardUsage(writer: (message?: string) => void, noticeAcceptFlag:
   }
 }
 
-export function parseOnboardArgs(
-  args: string[],
+function parseFromDockerfile(
+  parsedArgs: string[],
+  error: (message?: string) => void,
+  exit: (code: number) => never,
   noticeAcceptFlag: string,
-  noticeAcceptEnv: string,
-  deps: Pick<RunOnboardCommandDeps, "env" | "error" | "exit" | "listAgents">,
-): OnboardCommandOptions {
-  const error = deps.error ?? console.error;
-  const exit = deps.exit ?? ((code: number) => process.exit(code));
-  const parsedArgs = [...args];
-
+): string | null {
   let fromDockerfile: string | null = null;
   const fromIdx = parsedArgs.indexOf("--from");
   if (fromIdx !== -1) {
@@ -108,7 +103,15 @@ export function parseOnboardArgs(
     fromDockerfile = requestedFromDockerfile;
     parsedArgs.splice(fromIdx, 2);
   }
+  return fromDockerfile;
+}
 
+function parseSandboxName(
+  parsedArgs: string[],
+  error: (message?: string) => void,
+  exit: (code: number) => never,
+  noticeAcceptFlag: string,
+): string | null {
   let sandboxName: string | null = null;
   const nameIdx = parsedArgs.indexOf("--name");
   if (nameIdx !== -1) {
@@ -121,7 +124,16 @@ export function parseOnboardArgs(
     sandboxName = nameValue;
     parsedArgs.splice(nameIdx, 2);
   }
+  return sandboxName;
+}
 
+function parseAgent(
+  parsedArgs: string[],
+  error: (message?: string) => void,
+  exit: (code: number) => never,
+  noticeAcceptFlag: string,
+  listAgents?: () => string[],
+): string | null {
   let agent: string | null = null;
   const agentIdx = parsedArgs.indexOf("--agent");
   if (agentIdx !== -1) {
@@ -131,7 +143,7 @@ export function parseOnboardArgs(
       printOnboardUsage(error, noticeAcceptFlag);
       exit(1);
     }
-    const knownAgents = deps.listAgents?.() ?? [];
+    const knownAgents = listAgents?.() ?? [];
     if (knownAgents.length > 0 && !knownAgents.includes(agentValue)) {
       error(`  Unknown agent '${agentValue}'. Available: ${knownAgents.join(", ")}`);
       printOnboardUsage(error, noticeAcceptFlag);
@@ -140,7 +152,15 @@ export function parseOnboardArgs(
     agent = agentValue;
     parsedArgs.splice(agentIdx, 2);
   }
+  return agent;
+}
 
+function parseControlUiPort(
+  parsedArgs: string[],
+  error: (message?: string) => void,
+  exit: (code: number) => never,
+  noticeAcceptFlag: string,
+): number | null {
   let controlUiPort: number | null = null;
   const portIdx = parsedArgs.indexOf("--control-ui-port");
   if (portIdx !== -1) {
@@ -159,7 +179,15 @@ export function parseOnboardArgs(
     controlUiPort = parsed;
     parsedArgs.splice(portIdx, 2);
   }
+  return controlUiPort;
+}
 
+function parseSandboxGpu(
+  parsedArgs: string[],
+  error: (message?: string) => void,
+  exit: (code: number) => never,
+  noticeAcceptFlag: string,
+): "enable" | "disable" | null {
   const sandboxGpuFlag = parsedArgs.includes("--sandbox-gpu");
   const noSandboxGpuFlag = parsedArgs.includes("--no-sandbox-gpu");
   if (sandboxGpuFlag && noSandboxGpuFlag) {
@@ -176,7 +204,16 @@ export function parseOnboardArgs(
     sandboxGpu = "disable";
     parsedArgs.splice(parsedArgs.indexOf("--no-sandbox-gpu"), 1);
   }
+  return sandboxGpu;
+}
 
+function parseSandboxGpuDevice(
+  parsedArgs: string[],
+  error: (message?: string) => void,
+  exit: (code: number) => never,
+  noticeAcceptFlag: string,
+  sandboxGpu: "enable" | "disable" | null,
+): string | null {
   let sandboxGpuDevice: string | null = null;
   const sandboxGpuDeviceIdx = parsedArgs.indexOf("--sandbox-gpu-device");
   if (sandboxGpuDeviceIdx !== -1) {
@@ -194,7 +231,17 @@ export function parseOnboardArgs(
     printOnboardUsage(error, noticeAcceptFlag);
     exit(1);
   }
+  return sandboxGpuDevice;
+}
 
+function validateConflicts(
+  parsedArgs: string[],
+  error: (message?: string) => void,
+  exit: (code: number) => never,
+  noticeAcceptFlag: string,
+  sandboxGpu: "enable" | "disable" | null,
+  sandboxGpuDevice: string | null,
+) {
   const allowedArgs = new Set([...ONBOARD_BASE_ARGS, noticeAcceptFlag]);
   const unknownArgs = parsedArgs.filter((arg) => !allowedArgs.has(arg));
   if (unknownArgs.length > 0) {
@@ -227,11 +274,31 @@ export function parseOnboardArgs(
     printOnboardUsage(error, noticeAcceptFlag);
     exit(1);
   }
+}
+
+export function parseOnboardArgs(
+  args: string[],
+  noticeAcceptFlag: string,
+  noticeAcceptEnv: string,
+  deps: Pick<RunOnboardCommandDeps, "env" | "error" | "exit" | "listAgents">,
+): OnboardCommandOptions {
+  const error = deps.error ?? console.error;
+  const exit = deps.exit ?? ((code: number) => process.exit(code));
+  const parsedArgs = [...args];
+
+  const fromDockerfile = parseFromDockerfile(parsedArgs, error, exit, noticeAcceptFlag);
+  const sandboxName = parseSandboxName(parsedArgs, error, exit, noticeAcceptFlag);
+  const agent = parseAgent(parsedArgs, error, exit, noticeAcceptFlag, deps.listAgents);
+  const controlUiPort = parseControlUiPort(parsedArgs, error, exit, noticeAcceptFlag);
+  const sandboxGpu = parseSandboxGpu(parsedArgs, error, exit, noticeAcceptFlag);
+  const sandboxGpuDevice = parseSandboxGpuDevice(parsedArgs, error, exit, noticeAcceptFlag, sandboxGpu);
+
+  validateConflicts(parsedArgs, error, exit, noticeAcceptFlag, sandboxGpu, sandboxGpuDevice);
 
   return {
     nonInteractive: parsedArgs.includes("--non-interactive"),
-    resume,
-    fresh,
+    resume: parsedArgs.includes("--resume"),
+    fresh: parsedArgs.includes("--fresh"),
     recreateSandbox: parsedArgs.includes("--recreate-sandbox"),
     fromDockerfile,
     sandboxName,
@@ -241,8 +308,8 @@ export function parseOnboardArgs(
       parsedArgs.includes(noticeAcceptFlag) || String(deps.env[noticeAcceptEnv] || "") === "1",
     agent,
     controlUiPort,
-    gpu,
-    noGpu,
+    gpu: parsedArgs.includes("--gpu"),
+    noGpu: parsedArgs.includes("--no-gpu"),
     autoYes: parsedArgs.includes("--yes") || parsedArgs.includes("-y"),
     noOllamaAutostart: parsedArgs.includes("--no-ollama-autostart"),
   };
