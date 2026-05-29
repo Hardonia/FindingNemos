@@ -1,6 +1,7 @@
 // @ts-nocheck
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
+import { isNonInteractiveEnv } from "../../core/interactive";
 //
 // Ollama auth-proxy lifecycle: token persistence, PID management,
 // proxy start/stop, model pull and validation.
@@ -628,20 +629,6 @@ async function pullOllamaModel(model) {
 // override env var in non-interactive mode, or block. Probe failures
 // degrade to "unknown" and never block onboarding.
 
-function isProxyNonInteractive(): boolean {
-  // Lazy-require to avoid a circular import (onboard.ts requires this file
-  // at module-load time). isNonInteractive is exported from onboard.ts;
-  // fall back to the env var if onboard hasn't fully loaded yet.
-  try {
-    const onboardMod = require("./onboard");
-    if (typeof onboardMod.isNonInteractive === "function") {
-      return Boolean(onboardMod.isNonInteractive());
-    }
-  } catch {
-    /* fall through to env-var check */
-  }
-  return process.env.NEMOCLAW_NON_INTERACTIVE === "1";
-}
 
 function isProxyAutoYes(): boolean {
   // isAutoYes is not exported from onboard.ts, so fall back to the env var.
@@ -716,7 +703,7 @@ async function checkOllamaModelToolSupport(
     return { ok: true, allowToolsIncompatible: true };
   }
 
-  if (isProxyNonInteractive()) {
+  if (isNonInteractiveEnv()) {
     if (process.env.NEMOCLAW_OLLAMA_REQUIRE_TOOLS === "0") {
       console.error(
         `  NEMOCLAW_OLLAMA_REQUIRE_TOOLS=0 set — proceeding with '${model}' despite missing 'tools'.`,
