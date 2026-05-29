@@ -86,6 +86,38 @@ emit_sandbox_sourced_file() {
   fi
 }
 
+# Safely create an empty restricted log file in /tmp.
+# Usage:
+#   emit_restricted_log /path/to/log <owner>:<group> <mode>
+#
+# If running in root mode, sets the specified owner and mode.
+# If running in non-root mode, owner is ignored (kept as current user)
+# but mode is applied. Atomic replacement prevents symlink attacks.
+emit_restricted_log() {
+  local path="$1"
+  local owner="$2"
+  local mode="$3"
+  local dir base tmp
+  dir="$(dirname "$path")"
+  base="$(basename "$path")"
+  tmp="$(mktemp "${dir}/.${base}.tmp.XXXXXX")" || return 1
+
+  if [ "$(id -u)" -eq 0 ] && [ -n "$owner" ]; then
+    if ! chown "$owner" "$tmp"; then
+      rm -f "$tmp"
+      return 1
+    fi
+  fi
+  if ! chmod "$mode" "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  if ! mv -f "$tmp" "$path"; then
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
 # Verify that trust-boundary files in /tmp have the expected permissions
 # BEFORE handing off to the sandbox user. Call this after all init work
 # and before launching services. Defence-in-depth: catches regressions
