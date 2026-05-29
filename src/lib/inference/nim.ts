@@ -333,7 +333,8 @@ export function canRunNimWithMemory(totalMemoryMB: number): boolean {
   return nimImages.models.some((m: NimModel) => m.minGpuMemoryMB <= totalMemoryMB);
 }
 
-export function detectGpu(): GpuDetection | null {
+
+function detectNvidiaPrimary(): GpuDetection | null {
   // Try NVIDIA first — query name, total, and free VRAM in a single call so
   // the preflight line can show the GPU model alongside the memory size and
   // the bootstrap-model selector can pick a model that fits currently
@@ -395,7 +396,7 @@ export function detectGpu(): GpuDetection | null {
         );
         const firstName = trusted[0].name;
         // Only surface a single name when every GPU reports the same model;
-        // a mixed-GPU host would otherwise be misreported as `Nx <firstName>`.
+        // a mixed-GPU host would otherwise be misreported as `Nx ${firstName}`.
         const allSameName =
           !!firstName && trusted.every((p: ParsedGpu) => p.name === firstName);
         return {
@@ -415,7 +416,10 @@ export function detectGpu(): GpuDetection | null {
   } catch {
     /* ignored */
   }
+  return null;
+}
 
+function detectNvidiaUnifiedFallback(): GpuDetection | null {
   // Fallback: unified-memory NVIDIA devices
   try {
     const nameOutput = runCapture(
@@ -484,7 +488,10 @@ export function detectGpu(): GpuDetection | null {
   } catch {
     /* ignored */
   }
+  return null;
+}
 
+function detectTegraGpuDetails(): GpuDetection | null {
   // Jetson/Tegra hosts often do not ship nvidia-smi, but still expose the
   // integrated NVIDIA GPU through firmware and Tegra device nodes.
   const tegraGpu = detectTegraHostGpu();
@@ -505,7 +512,10 @@ export function detectGpu(): GpuDetection | null {
       platform: tegraGpu.platform,
     };
   }
+  return null;
+}
 
+function detectAppleGpu(): GpuDetection | null {
   // macOS: detect Apple Silicon or discrete GPU
   if (process.platform === "darwin") {
     try {
@@ -550,14 +560,18 @@ export function detectGpu(): GpuDetection | null {
       /* ignored */
     }
   }
-
   return null;
 }
 
-// Check if Docker has stored credentials for nvcr.io.
-// Docker Desktop (macOS/Windows/WSL) stores creds in the OS keychain and
-// leaves an empty marker entry { "nvcr.io": {} } in auths after a successful
-// login. That marker plus a global credsStore is treated as logged in.
+export function detectGpu(): GpuDetection | null {
+  return (
+    detectNvidiaPrimary() ||
+    detectNvidiaUnifiedFallback() ||
+    detectTegraGpuDetails() ||
+    detectAppleGpu()
+  );
+}
+
 export function isNgcLoggedIn(): boolean {
   try {
     const os = require("os");
