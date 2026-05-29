@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import { isNonInteractiveEnv } from "../../core/interactive";
 
 import fs from "node:fs";
 import path from "node:path";
@@ -10,7 +11,6 @@ import { CLI_DISPLAY_NAME, CLI_NAME } from "../../cli/branding";
 import { hashCredential } from "../../security/credential-hash";
 import { getCredential, prompt as askPrompt } from "../../credentials/store";
 import { recoverNamedGatewayRuntime } from "../../gateway-runtime-action";
-const { isNonInteractive } = require("../../onboard") as { isNonInteractive: () => boolean };
 const onboardProviders = require("../../onboard/providers");
 import * as policies from "../../policy";
 // Lazy-required: keeps qrcode-terminal + the iLink HTTP client out of the
@@ -461,7 +461,7 @@ async function applyChannelRemoveToGatewayAndRegistry(
 }
 
 async function promptAndRebuild(sandboxName: string, actionDesc: string): Promise<void> {
-  if (isNonInteractive()) {
+  if (isNonInteractiveEnv()) {
     console.log("");
     console.log(
       `  Change queued. Run '${CLI_NAME} ${sandboxName} rebuild' to apply (${actionDesc}).`,
@@ -498,7 +498,7 @@ async function acquirePasteTokens(
       acquired[envKey] = existing;
       continue;
     }
-    if (isNonInteractive()) {
+    if (isNonInteractiveEnv()) {
       console.error(`  Missing ${envKey} for channel '${channelArg}'.`);
       console.error(
         `  Set ${envKey} in the environment or via '${CLI_NAME} credentials' before running in non-interactive mode.`,
@@ -573,7 +573,7 @@ async function acquireHostQrChannel(
     acquired[envKey] = cached;
     return;
   }
-  if (isNonInteractive()) {
+  if (isNonInteractiveEnv()) {
     console.error(
       `  '${channelArg}' requires an interactive QR login; cannot run in non-interactive mode.`,
     );

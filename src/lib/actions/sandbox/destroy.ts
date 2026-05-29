@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import { isNonInteractiveEnv } from "../../core/interactive";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -180,13 +181,6 @@ function cleanupGatewayAfterLastSandbox(): void {
   });
 }
 
-// Mirrors the body of `isNonInteractive()` in src/lib/onboard.ts. Duplicated
-// here to avoid an awkward sibling-action -> onboard import; the canonical
-// helper should be lifted to src/lib/core/ so this and the lazy requires in
-// policy-channel.ts and inference/ollama/proxy.ts can all share one source.
-function isNonInteractive(): boolean {
-  return process.env.NEMOCLAW_NON_INTERACTIVE === "1";
-}
 
 /**
  * Decide whether to tear down the shared NemoClaw gateway after destroying
@@ -205,7 +199,7 @@ async function resolveCleanupGatewayDecision(
   if (options.cleanupGateway === true) return true;
   if (options.cleanupGateway === false) return false;
   if (options.yes === true || options.force === true) return false;
-  if (isNonInteractive()) return false;
+  if (isNonInteractiveEnv()) return false;
   console.log(`  ${YW}This was the last sandbox.${R}`);
   console.log(
     "  Also destroy the shared NemoClaw gateway (port forward, gateway pod, cluster volumes)?",

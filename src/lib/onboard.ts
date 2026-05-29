@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
+import { isNonInteractiveEnv } from "./core/interactive";
 // Interactive onboarding wizard — 8 steps from zero to running sandbox.
 // Supports non-interactive mode via --non-interactive flag or
 // NEMOCLAW_NON_INTERACTIVE=1 env var for CI/CD pipelines.
@@ -593,7 +594,7 @@ let AUTO_YES = false;
 let _preflightDashboardPort: number | null = null;
 
 function isNonInteractive(): boolean {
-  return NON_INTERACTIVE || process.env.NEMOCLAW_NON_INTERACTIVE === "1";
+  return NON_INTERACTIVE || isNonInteractiveEnv();
 }
 
 function isRecreateSandbox(): boolean {
