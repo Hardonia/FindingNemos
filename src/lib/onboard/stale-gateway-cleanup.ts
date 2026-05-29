@@ -123,13 +123,7 @@ export function defaultStaleGatewayDeps(
   };
 }
 
-function parsePidLines(output: string): number[] {
-  return output
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => /^\d+$/.test(line))
-    .map(Number);
-}
+
 
 function pidOwnedByCurrentUser(pid: number, deps: StaleGatewayDeps): boolean {
   const expected =
@@ -161,19 +155,56 @@ function pidCmdlineMatches(pid: number, deps: StaleGatewayDeps): boolean {
   return CMDLINE_MARKERS.some((marker) => cmdline.includes(marker));
 }
 
-function lsofPidsForPort(port: number, deps: StaleGatewayDeps): number[] {
+function lsofPidsForPortRange(
+  startPort: number,
+  endPort: number,
+  deps: StaleGatewayDeps,
+): Map<number, number[]> {
+  const pidsByPort = new Map<number, number[]>();
+
   // Restrict to listening sockets so we never kill a process that is only
   // an in-flight client of the port (matches the `-sTCP:LISTEN` pattern in
   // preflight). Anything else under SIGTERM/SIGKILL would be unsafe.
-  const result = deps.run("lsof", ["-ti", `:${port}`, "-sTCP:LISTEN"], { env: deps.env });
+  // Using `-F pn` allows parsing PID and port mapping safely for the whole range.
+  const result = deps.run("lsof", [
+    "-i", `:${startPort}-${endPort}`,
+    "-sTCP:LISTEN",
+    "-n", "-P", "-F", "pn"
+  ], { env: deps.env });
+
   if (result.status !== 0 && result.status !== 1) {
     // Status 1 from lsof is "no listeners" — normal. Anything else is a real error.
     const warn = deps.warn ?? ((m: string) => console.warn(m));
     const detail = result.stderr.trim() || `status ${String(result.status)}`;
-    warn(`lsof failed while scanning dashboard port ${port}: ${detail}`);
-    return [];
+    warn(`lsof failed while scanning dashboard ports ${startPort}-${endPort}: ${detail}`);
+    return pidsByPort;
   }
-  return parsePidLines(result.stdout);
+
+  const lines = result.stdout.split(/\r?\n/);
+  let currentPid: number | undefined;
+
+  for (const line of lines) {
+    if (line.startsWith("p")) {
+      currentPid = parseInt(line.slice(1), 10);
+    } else if (line.startsWith("n") && currentPid !== undefined) {
+      const match = line.match(/:(\d+)$/);
+      if (match) {
+        const port = parseInt(match[1], 10);
+        if (port >= startPort && port <= endPort) {
+          let pids = pidsByPort.get(port);
+          if (!pids) {
+            pids = [];
+            pidsByPort.set(port, pids);
+          }
+          if (!pids.includes(currentPid)) {
+            pids.push(currentPid);
+          }
+        }
+      }
+    }
+  }
+
+  return pidsByPort;
 }
 
 export function getProtectedDashboardPortsForSandbox(
@@ -246,16 +277,18 @@ export function stopStaleDashboardListeners(
   if (deps.commandExists && !deps.commandExists("lsof")) return result;
 
   const seen = new Set<number>();
+  const pidsByPort = lsofPidsForPortRange(DASHBOARD_PORT_RANGE_START, DASHBOARD_PORT_RANGE_END, deps);
+
   for (let port = DASHBOARD_PORT_RANGE_START; port <= DASHBOARD_PORT_RANGE_END; port += 1) {
     if (protectedPorts.has(port)) {
-      const pids = lsofPidsForPort(port, deps);
+      const pids = pidsByPort.get(port) || [];
       if (pids.length > 0) {
         result.skippedProtectedPorts.push(port);
         for (const pid of pids) seen.add(pid);
       }
       continue;
     }
-    for (const pid of lsofPidsForPort(port, deps)) {
+    for (const pid of pidsByPort.get(port) || []) {
       if (seen.has(pid)) continue;
       seen.add(pid);
       if (!pidOwnedByCurrentUser(pid, deps)) {
