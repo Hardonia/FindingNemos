@@ -270,8 +270,13 @@ export async function verifyDeployment(
   const sleep = options.sleep ?? defaultSleep;
   const diagnostics: DeploymentDiagnostic[] = [];
 
+  // Run gateway and dashboard probes concurrently
+  const [gateway, dashboard] = await Promise.all([
+    verifyGatewayInSandbox(sandboxName, chain, deps, retryDelaysMs, sleep),
+    verifyDashboardFromHost(chain, deps, retryDelaysMs, sleep),
+  ]);
+
   // 1. Gateway reachable inside sandbox
-  const gateway = await verifyGatewayInSandbox(sandboxName, chain, deps, retryDelaysMs, sleep);
   diagnostics.push({
     link: "gateway",
     status: gateway.reachable ? "ok" : "fail",
@@ -283,7 +288,6 @@ export async function verifyDeployment(
   const gatewayVersion = gateway.reachable ? fetchGatewayVersion(sandboxName, deps) : null;
 
   // 3. Dashboard reachable from host (port forward)
-  const dashboard = await verifyDashboardFromHost(chain, deps, retryDelaysMs, sleep);
   diagnostics.push({
     link: "dashboard",
     status: dashboard.reachable ? "ok" : "fail",
