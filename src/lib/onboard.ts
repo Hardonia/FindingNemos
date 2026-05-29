@@ -2825,9 +2825,10 @@ async function createSandbox(
   // skipped the token prompt for. Only channels with a real token will have a
   // provider attached, so the conflict check must filter out the skipped ones
   // (otherwise we warn about phantom channels that will never poll).
+  const channelsByName = new Map(MESSAGING_CHANNELS.map((c) => [c.name, c]));
   const conflictCheckChannels = Array.isArray(enabledChannels)
     ? enabledChannels.flatMap((name) => {
-        const def = MESSAGING_CHANNELS.find((c) => c.name === name);
+        const def = channelsByName.get(name);
         if (!def || !def.envKey || !getValidatedMessagingToken(def, def.envKey)) return [];
         const tokenEnvKeys = getChannelTokenKeys(def);
         const credentialHashes: Record<string, string> = {};
@@ -2873,10 +2874,11 @@ async function createSandbox(
 
   // When enabledChannels is provided (from the toggle picker), only include
   // channels the user selected. When null (backward compat), include all.
+  const enabledChannelsSet = enabledChannels != null ? new Set(enabledChannels) : null;
   const enabledEnvKeys =
-    enabledChannels != null
+    enabledChannelsSet != null
       ? new Set(
-          MESSAGING_CHANNELS.filter((c) => enabledChannels.includes(c.name)).flatMap((c) =>
+          MESSAGING_CHANNELS.filter((c) => enabledChannelsSet.has(c.name)).flatMap((c) =>
             getChannelTokenKeys(c),
           ),
         )
