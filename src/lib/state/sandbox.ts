@@ -778,9 +778,9 @@ function failedDirsFromTarStderr(stderr: string, existingDirs: string[]): Set<st
 }
 
 const SQLITE_BACKUP_PY = [
-  "import sqlite3, sys",
+  "import sqlite3, sys, urllib.request",
   "src, dst = sys.argv[1], sys.argv[2]",
-  "src_conn = sqlite3.connect('file:' + src + '?mode=ro', uri=True, timeout=30)",
+  "src_conn = sqlite3.connect('file:' + urllib.request.pathname2url(src) + '?mode=ro', uri=True, timeout=30)",
   "dst_conn = sqlite3.connect(dst, timeout=30)",
   "try:",
   "    dst_conn.execute('PRAGMA busy_timeout=30000')",
@@ -794,10 +794,10 @@ const SQLITE_BACKUP_PY = [
 ].join("\n");
 
 const SQLITE_RESTORE_PY = [
-  "import os, sqlite3, sys",
+  "import os, sqlite3, sys, urllib.request",
   "src, dst = sys.argv[1], sys.argv[2]",
   "os.makedirs(os.path.dirname(dst), exist_ok=True)",
-  "src_conn = sqlite3.connect('file:' + src + '?mode=ro', uri=True, timeout=30)",
+  "src_conn = sqlite3.connect('file:' + urllib.request.pathname2url(src) + '?mode=ro', uri=True, timeout=30)",
   "dst_conn = sqlite3.connect(dst, timeout=30)",
   "try:",
   "    dst_conn.execute('PRAGMA busy_timeout=30000')",
