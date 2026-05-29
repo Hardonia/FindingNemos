@@ -215,20 +215,20 @@ export interface CollectedFiles {
  * separately so the caller can warn. Paths with unsafe characters are
  * rejected to prevent shell injection when interpolated into SSH commands.
  */
-export function collectFiles(dir: string): CollectedFiles {
+export async function collectFiles(dir: string): Promise<CollectedFiles> {
   const files: string[] = [];
   const skippedDotfiles: string[] = [];
   const unsafePaths: string[] = [];
 
-  function walk(current: string, prefix: string) {
-    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+  async function walk(current: string, prefix: string) {
+    for (const entry of await fs.promises.readdir(current, { withFileTypes: true })) {
       const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
       if (entry.name.startsWith(".")) {
         skippedDotfiles.push(entry.isDirectory() ? `${rel}/` : rel);
         continue;
       }
       if (entry.isDirectory()) {
-        walk(path.join(current, entry.name), rel);
+        await walk(path.join(current, entry.name), rel);
       } else if (entry.isFile()) {
         if (!validateRelativePath(rel)) {
           unsafePaths.push(rel);
@@ -238,7 +238,7 @@ export function collectFiles(dir: string): CollectedFiles {
       }
     }
   }
-  walk(dir, "");
+  await walk(dir, "");
   return { files, skippedDotfiles, unsafePaths };
 }
 
@@ -246,12 +246,12 @@ export function collectFiles(dir: string): CollectedFiles {
  * Upload an entire skill directory to the sandbox, preserving subdirectory
  * structure. Rejects files with unsafe path characters and skips dotfiles.
  */
-export function uploadDirectory(
+export async function uploadDirectory(
   ctx: SshContext,
   localDir: string,
   remoteDir: string,
-): { uploaded: number; failed: string[]; skippedDotfiles: string[]; unsafePaths: string[] } {
-  const { files, skippedDotfiles, unsafePaths } = collectFiles(localDir);
+): Promise<{ uploaded: number; failed: string[]; skippedDotfiles: string[]; unsafePaths: string[] }> {
+  const { files, skippedDotfiles, unsafePaths } = await collectFiles(localDir);
   if (unsafePaths.length > 0) {
     return { uploaded: 0, failed: unsafePaths, skippedDotfiles, unsafePaths };
   }
