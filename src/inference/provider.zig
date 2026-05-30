@@ -66,14 +66,14 @@ pub fn probeHealth(allocator: std.mem.Allocator, info: *ProviderInfo) !void {
     }
 
     const endpoint = info.endpoint.?;
-    
+
     var url_buf: [512]u8 = undefined;
     var fbs = std.io.fixedBufferStream(&url_buf);
-    
+
     // Format endpoint avoiding double slashes if health_path starts with /
     const has_trailing = std.mem.endsWith(u8, endpoint, "/");
     const has_leading = std.mem.startsWith(u8, info.health_path, "/");
-    
+
     if (has_trailing and has_leading) {
         try fbs.writer().print("{s}{s}", .{ endpoint, info.health_path[1..] });
     } else if (!has_trailing and !has_leading) {
@@ -81,7 +81,7 @@ pub fn probeHealth(allocator: std.mem.Allocator, info: *ProviderInfo) !void {
     } else {
         try fbs.writer().print("{s}{s}", .{ endpoint, info.health_path });
     }
-    
+
     const url_str = fbs.getWritten();
     const uri = std.Uri.parse(url_str) catch {
         info.state = .unavailable;
