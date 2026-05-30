@@ -118,17 +118,24 @@ export async function upgradeSandboxes(
     return;
   }
 
+  if (!skipConfirm) {
+    const promptMsg = rebuildable.length === 1
+      ? `  Rebuild '${rebuildable[0].name}'? [y/N]: `
+      : `  Rebuild all ${rebuildable.length} stale sandbox(es)? [y/N]: `;
+    const answer = await askPrompt(promptMsg);
+    if (answer.trim().toLowerCase() !== "y" && answer.trim().toLowerCase() !== "yes") {
+      console.log("  Skipped rebuilding.");
+      return;
+    }
+  }
+
   let rebuilt = 0;
   let failed = 0;
   for (const s of rebuildable) {
-    if (!skipConfirm) {
-      const answer = await askPrompt(`  Rebuild '${s.name}'? [y/N]: `);
-      if (answer.trim().toLowerCase() !== "y" && answer.trim().toLowerCase() !== "yes") {
-        console.log(`  Skipped '${s.name}'.`);
-        continue;
-      }
-    }
     try {
+      if (rebuildable.length > 1) {
+        console.log(`\n  Rebuilding '${s.name}'...`);
+      }
       await rebuildSandbox(s.name, ["--yes"], { throwOnError: true });
       rebuilt++;
     } catch (err) {
