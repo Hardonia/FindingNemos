@@ -509,37 +509,9 @@ function runChatCompletionsProbe({ authHeader, model, url, isWsl: isWslOverride 
   return runCurlProbe(args);
 }
 
-function probeOpenAiLikeEndpoint(endpointUrl, model, apiKey, options = {}) {
-  if (isHijackedDockerInternalUrl(endpointUrl) && options.allowHostDockerInternal !== true) {
-    return getHostDockerInternalProbeFailure();
-  }
 
-  if (isSandboxInternalUrl(endpointUrl)) {
-    const { hostname } = new URL(String(endpointUrl));
-    if (options.requireChatCompletionsToolCalling !== true) {
-      return {
-        ok: true,
-        api: null,
-        label: null,
-        note: `${hostname} only resolves inside the sandbox — validation skipped. If the endpoint is unreachable at runtime, re-run onboard with a routable URL.`,
-      };
-    }
-    return {
-      ok: false,
-      message: `${hostname} only resolves inside the sandbox and cannot be validated for required structured Chat Completions tool calls from the host. Use a routable endpoint URL and retry onboard.`,
-      failures: [
-        {
-          name: "Chat Completions API with tool calling",
-          httpStatus: 0,
-          curlStatus: 0,
-          message: "sandbox-internal endpoint cannot be strictly validated from host",
-          body: "",
-        },
-      ],
-    };
-  }
-
-  const useQueryParam = options.authMode === "query-param";
+function buildProbeAuth(endpointUrl, apiKey, authMode) {
+  const useQueryParam = authMode === "query-param";
   const normalizedKey = apiKey ? normalizeCredentialValue(apiKey) : "";
   const baseUrl = String(endpointUrl).replace(/\/+$/, "");
   const authHeader =
@@ -548,7 +520,10 @@ function probeOpenAiLikeEndpoint(endpointUrl, model, apiKey, options = {}) {
     useQueryParam && normalizedKey
       ? `${baseUrl}${urlPath}?key=${encodeURIComponent(normalizedKey)}`
       : `${baseUrl}${urlPath}`;
+  return { authHeader, appendKey };
+}
 
+function buildProbesList(endpointUrl, model, apiKey, options, authHeader, appendKey) {
   const responsesProbe =
     options.requireResponsesToolCalling === true
       ? {
@@ -592,65 +567,199 @@ function probeOpenAiLikeEndpoint(endpointUrl, model, apiKey, options = {}) {
           }),
   };
 
-  // NVIDIA Build does not expose /v1/responses; probing it always returns
-  // "404 page not found" and only adds noise to error messages. Skip it
-  // entirely for that provider. See issue #1601.
-  const probes = options.skipResponsesProbe
+  return options.skipResponsesProbe
     ? [chatCompletionsProbe]
     : [responsesProbe, chatCompletionsProbe];
+}
 
-  const failures = [];
-  for (const probe of probes) {
-    const result = executeProbeWithHttpRetry(probe);
-    if (result.ok) {
-      // Streaming event validation — catch backends like SGLang that return
-      // valid non-streaming responses but emit incomplete SSE events in
-      // streaming mode. Only run for /responses probes on custom endpoints
-      // where probeStreaming was requested.
-      if (probe.api === "openai-responses" && options.probeStreaming === true) {
-        const streamResult = runStreamingEventProbe([
-          "-sS",
-          ...getValidationProbeCurlArgs(),
-          "-H",
-          "Content-Type: application/json",
-          ...authHeader,
-          "-d",
-          JSON.stringify({
-            model,
-            input: "Reply with exactly: OK",
-            stream: true,
-          }),
-          appendKey("/responses"),
-        ]);
-        if (!streamResult.ok && streamResult.missingEvents.length > 0) {
-          // Backend responds but lacks required streaming events — fall back
-          // to /chat/completions silently.
-          console.log(`  ℹ ${streamResult.message}`);
-          failures.push({
+function processStreamingProbe(probe, model, authHeader, appendKey) {
+  const streamResult = runStreamingEventProbe([
+    "-sS",
+    ...getValidationProbeCurlArgs(),
+    "-H",
+    "Content-Type: application/json",
+    ...authHeader,
+    "-d",
+    JSON.stringify({
+      model,
+      input: "Reply with exactly: OK",
+      stream: true,
+    }),
+    appendKey("/responses"),
+  ]);
+
+  if (!streamResult.ok && streamResult.missingEvents.length > 0) {
+    console.log(`  ℹ ${streamResult.message}`);
+    return {
+      status: "fallback",
+      failure: {
+        name: probe.name + " (streaming)",
+        httpStatus: 0,
+        curlStatus: 0,
+        message: streamResult.message,
+        body: "",
+      },
+    };
+  }
+
+  if (!streamResult.ok) {
+    return {
+      status: "error",
+      result: {
+        ok: false,
+        message: `${probe.name} (streaming): ${streamResult.message}`,
+        failures: [
+          {
             name: probe.name + " (streaming)",
             httpStatus: 0,
             curlStatus: 0,
             message: streamResult.message,
             body: "",
-          });
+          },
+        ],
+      },
+    };
+  }
+
+  return { status: "ok" };
+}
+
+function executeProbeRetries(endpointUrl, model, apiKey, options, failures) {
+  const isTimeoutOrConnFailure = (cs) => cs === 28 || cs === 6 || cs === 7;
+  const isRetriableProbeResult = (result) =>
+    isTimeoutOrConnFailure(result.curlStatus) ||
+    RETRIABLE_HTTP_PROBE_STATUSES.has(result.httpStatus);
+
+  if (!failures.some((failure) => isTimeoutOrConnFailure(failure.curlStatus))) {
+    return { retriedAfterTimeout: false, retryResult: null };
+  }
+
+  const baseArgs = getValidationProbeCurlArgs();
+  const doubledArgs = baseArgs.map((arg) => (/^\d+$/.test(arg) ? String(Number(arg) * 2) : arg));
+  const buildRetryArgs = () => [
+    "-sS",
+    ...doubledArgs,
+    "-H",
+    "Content-Type: application/json",
+    ...(apiKey ? ["-H", `Authorization: Bearer ${normalizeCredentialValue(apiKey)}`] : []),
+    "-d",
+    JSON.stringify(getChatCompletionsProbePayload(model)),
+    `${String(endpointUrl).replace(/\/+$/, "")}/chat/completions`,
+  ];
+
+  const runRetryProbe = () =>
+    options.requireChatCompletionsToolCalling === true
+      ? probeChatCompletionsToolCalling(endpointUrl, model, apiKey, {
+          authMode: options.authMode,
+          timingArgs: doubledArgs,
+        })
+      : runCurlProbe(buildRetryArgs());
+
+  let retryResult = runRetryProbe();
+  if (retryResult.ok) {
+    return { retriedAfterTimeout: true, retryResult };
+  }
+
+  for (const delayMs of HTTP_PROBE_RETRY_DELAYS_MS) {
+    if (!isRetriableProbeResult(retryResult)) break;
+    const reason = isTimeoutOrConnFailure(retryResult.curlStatus)
+      ? "timed out"
+      : `returned HTTP ${retryResult.httpStatus}`;
+    console.log(
+      `  Chat Completions API validation ${reason}; retrying in ${Math.round(delayMs / 1000)}s...`
+    );
+    sleepSync(delayMs);
+    retryResult = runRetryProbe();
+    if (retryResult.ok) {
+      return { retriedAfterTimeout: true, retryResult };
+    }
+  }
+
+  if (options.requireChatCompletionsToolCalling === true) {
+    failures.push({
+      name: "Chat Completions API with tool calling (retry)",
+      httpStatus: retryResult.httpStatus,
+      curlStatus: retryResult.curlStatus,
+      message: retryResult.message,
+      body: retryResult.body,
+    });
+  }
+
+  return { retriedAfterTimeout: true, retryResult: null };
+}
+
+function buildFinalErrorResult(model, failures, retriedAfterTimeout) {
+  const accountFailure = failures.find(
+    (failure) =>
+      isNvcfFunctionNotFoundForAccount(failure.message) ||
+      isNvcfFunctionNotFoundForAccount(failure.body),
+  );
+  if (accountFailure) {
+    return {
+      ok: false,
+      message: nvcfFunctionNotFoundMessage(model),
+      failures,
+    };
+  }
+
+  const baseMessage = failures.map((failure) => `${failure.name}: ${failure.message}`).join(" | ");
+  const wslHint =
+    isWsl() && retriedAfterTimeout
+      ? " · WSL2 detected — network verification may be slower than expected. " +
+        "Run `nemoclaw onboard` with the `--skip-verify` flag if this endpoint is known to be reachable."
+      : "";
+  return {
+    ok: false,
+    message: baseMessage + wslHint,
+    failures,
+  };
+}
+
+function probeOpenAiLikeEndpoint(endpointUrl, model, apiKey, options = {}) {
+  if (isHijackedDockerInternalUrl(endpointUrl) && options.allowHostDockerInternal !== true) {
+    return getHostDockerInternalProbeFailure();
+  }
+
+  if (isSandboxInternalUrl(endpointUrl)) {
+    const { hostname } = new URL(String(endpointUrl));
+    if (options.requireChatCompletionsToolCalling !== true) {
+      return {
+        ok: true,
+        api: null,
+        label: null,
+        note: `${hostname} only resolves inside the sandbox — validation skipped. If the endpoint is unreachable at runtime, re-run onboard with a routable URL.`,
+      };
+    }
+    return {
+      ok: false,
+      message: `${hostname} only resolves inside the sandbox and cannot be validated for required structured Chat Completions tool calls from the host. Use a routable endpoint URL and retry onboard.`,
+      failures: [
+        {
+          name: "Chat Completions API with tool calling",
+          httpStatus: 0,
+          curlStatus: 0,
+          message: "sandbox-internal endpoint cannot be strictly validated from host",
+          body: "",
+        },
+      ],
+    };
+  }
+
+  const { authHeader, appendKey } = buildProbeAuth(endpointUrl, apiKey, options.authMode);
+  const probes = buildProbesList(endpointUrl, model, apiKey, options, authHeader, appendKey);
+  const failures = [];
+
+  for (const probe of probes) {
+    const result = executeProbeWithHttpRetry(probe);
+    if (result.ok) {
+      if (probe.api === "openai-responses" && options.probeStreaming === true) {
+        const streamStatus = processStreamingProbe(probe, model, authHeader, appendKey);
+        if (streamStatus.status === "fallback") {
+          failures.push(streamStatus.failure);
           continue;
         }
-        if (!streamResult.ok) {
-          // Transport or execution failure — surface as a hard error instead
-          // of silently switching APIs.
-          return {
-            ok: false,
-            message: `${probe.name} (streaming): ${streamResult.message}`,
-            failures: [
-              {
-                name: probe.name + " (streaming)",
-                httpStatus: 0,
-                curlStatus: 0,
-                message: streamResult.message,
-                body: "",
-              },
-            ],
-          };
+        if (streamStatus.status === "error") {
+          return streamStatus.result;
         }
       }
       return { ok: true, api: probe.api, label: probe.name };
@@ -671,10 +780,6 @@ function probeOpenAiLikeEndpoint(endpointUrl, model, apiKey, options = {}) {
         validated: false,
       };
     }
-    // Preserve the raw response body alongside the summarized message so the
-    // NVCF "Function not found for account" detector below can fall back to
-    // the raw body if summarizeProbeError ever stops surfacing the marker
-    // through `message`.
     failures.push({
       name: probe.name,
       httpStatus: result.httpStatus,
@@ -684,98 +789,20 @@ function probeOpenAiLikeEndpoint(endpointUrl, model, apiKey, options = {}) {
     });
   }
 
-  // Retry with doubled timeouts on timeout/connection failure, using the same
-  // backoff schedule as transient HTTP statuses. WSL2's virtualized network
-  // stack can cause the initial probe to time out before the TLS handshake
-  // completes (#987); hosted providers also occasionally drop connections for
-  // tens of seconds during incidents (#3033).
-  const isTimeoutOrConnFailure = (cs) => cs === 28 || cs === 6 || cs === 7;
-  const isRetriableProbeResult = (result) =>
-    isTimeoutOrConnFailure(result.curlStatus) ||
-    RETRIABLE_HTTP_PROBE_STATUSES.has(result.httpStatus);
-  // Look across every failure entry rather than only failures[0] so a probe
-  // ordering like /responses (HTTP error) followed by /chat/completions
-  // (curl 28) still triggers the chat-completions retry path.
-  let retriedAfterTimeout = false;
-  if (failures.some((failure) => isTimeoutOrConnFailure(failure.curlStatus))) {
-    retriedAfterTimeout = true;
-    const baseArgs = getValidationProbeCurlArgs();
-    const doubledArgs = baseArgs.map((arg) => (/^\d+$/.test(arg) ? String(Number(arg) * 2) : arg));
-    const buildRetryArgs = () => [
-      "-sS",
-      ...doubledArgs,
-      "-H",
-      "Content-Type: application/json",
-      ...(apiKey ? ["-H", `Authorization: Bearer ${normalizeCredentialValue(apiKey)}`] : []),
-      "-d",
-      JSON.stringify(getChatCompletionsProbePayload(model)),
-      `${String(endpointUrl).replace(/\/+$/, "")}/chat/completions`,
-    ];
-    const runRetryProbe = () =>
-      options.requireChatCompletionsToolCalling === true
-        ? probeChatCompletionsToolCalling(endpointUrl, model, apiKey, {
-            authMode: options.authMode,
-            timingArgs: doubledArgs,
-          })
-        : runCurlProbe(buildRetryArgs());
-    let retryResult = runRetryProbe();
-    if (retryResult.ok) {
-      return { ok: true, api: "openai-completions", label: "Chat Completions API" };
-    }
-    for (const delayMs of HTTP_PROBE_RETRY_DELAYS_MS) {
-      if (!isRetriableProbeResult(retryResult)) break;
-      const reason = isTimeoutOrConnFailure(retryResult.curlStatus)
-        ? "timed out"
-        : `returned HTTP ${retryResult.httpStatus}`;
-      console.log(
-        `  Chat Completions API validation ${reason}; retrying in ${Math.round(delayMs / 1000)}s...`,
-      );
-      sleepSync(delayMs);
-      retryResult = runRetryProbe();
-      if (retryResult.ok) {
-        return { ok: true, api: "openai-completions", label: "Chat Completions API" };
-      }
-    }
-    if (options.requireChatCompletionsToolCalling === true) {
-      failures.push({
-        name: "Chat Completions API with tool calling (retry)",
-        httpStatus: retryResult.httpStatus,
-        curlStatus: retryResult.curlStatus,
-        message: retryResult.message,
-        body: retryResult.body,
-      });
-    }
-  }
-
-  // Detect the NVCF "Function not found for account" error and reframe it
-  // with an actionable next step instead of dumping the raw NVCF body.
-  // See issue #1601 (Bug 2).
-  const accountFailure = failures.find(
-    (failure) =>
-      isNvcfFunctionNotFoundForAccount(failure.message) ||
-      isNvcfFunctionNotFoundForAccount(failure.body),
+  const { retriedAfterTimeout, retryResult } = executeProbeRetries(
+    endpointUrl,
+    model,
+    apiKey,
+    options,
+    failures
   );
-  if (accountFailure) {
-    return {
-      ok: false,
-      message: nvcfFunctionNotFoundMessage(model),
-      failures,
-    };
+
+  if (retryResult && retryResult.ok) {
+    return { ok: true, api: "openai-completions", label: "Chat Completions API" };
   }
 
-  const baseMessage = failures.map((failure) => `${failure.name}: ${failure.message}`).join(" | ");
-  const wslHint =
-    isWsl() && retriedAfterTimeout
-      ? " · WSL2 detected \u2014 network verification may be slower than expected. " +
-        "Run `nemoclaw onboard` with the `--skip-verify` flag if this endpoint is known to be reachable."
-      : "";
-  return {
-    ok: false,
-    message: baseMessage + wslHint,
-    failures,
-  };
+  return buildFinalErrorResult(model, failures, retriedAfterTimeout);
 }
-
 // ── Anthropic probe ──────────────────────────────────────────────
 
 function probeAnthropicEndpoint(endpointUrl, model, apiKey) {
