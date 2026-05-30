@@ -120,14 +120,21 @@ export async function upgradeSandboxes(
 
   let rebuilt = 0;
   let failed = 0;
-  for (const s of rebuildable) {
-    if (!skipConfirm) {
+  const approved = [];
+  if (!skipConfirm) {
+    for (const s of rebuildable) {
       const answer = await askPrompt(`  Rebuild '${s.name}'? [y/N]: `);
       if (answer.trim().toLowerCase() !== "y" && answer.trim().toLowerCase() !== "yes") {
         console.log(`  Skipped '${s.name}'.`);
-        continue;
+      } else {
+        approved.push(s);
       }
     }
+  } else {
+    approved.push(...rebuildable);
+  }
+
+  for (const s of approved) {
     try {
       await rebuildSandbox(s.name, ["--yes"], { throwOnError: true });
       rebuilt++;
