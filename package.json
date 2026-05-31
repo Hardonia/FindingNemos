@@ -80,12 +80,12 @@
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
     "@earendil-works/pi-coding-agent": "0.74.0",
-    "@j178/prek": "^0.3.6",
+    "@j178/prek": "^0.3.13",
     "@types/node": "^25.5.2",
     "@vitest/coverage-v8": "^4.1.0",
     "ajv": "^8.17.0",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.2",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.0"
   }
 }
