@@ -206,3 +206,15 @@ See [docs/roadmap.md](docs/roadmap.md) for the full roadmap.
 ## License
 
 Apache 2.0. See [LICENSE](LICENSE).
+
+<!-- platform-matrix:begin -->
+| OS | Container runtime | Status | Notes |
+|----|-------------------|--------|-------|
+| Linux | Docker | Tested | Primary tested path. |
+| macOS (Apple Silicon) | Colima, Docker Desktop | Tested with limitations | Install Xcode Command Line Tools (`xcode-select --install`) and start the runtime before running the installer. |
+| DGX Spark | Docker | Tested | Use the standard installer and `nemoclaw onboard`. For an end-to-end walkthrough with local Ollama inference, see the [NVIDIA Spark playbook](https://build.nvidia.com/spark/nemoclaw). |
+| Windows WSL2 | Docker Desktop (WSL backend) | Tested with limitations | Requires WSL2 with Docker Desktop backend. |
+<!-- platform-matrix:end -->
+
+<!-- provider-matrix:begin -->
+<!-- provider-matrix:end -->

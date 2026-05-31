@@ -1670,106 +1670,14 @@ export function getDockerBridgeGatewayIp(
   return match[0];
 }
 
+
 /**
- * Probe whether DNS resolution works from inside a docker container.
- * Returns `{ ok: true }` when a busybox test container resolves
- * `registry.npmjs.org`; otherwise returns a structured `reason` +
- * truncated `details` so callers can tailor the error message:
- *
- * - `image_pull_failed` — the busybox image couldn't be pulled (docker
- *   daemon can't reach the registry). Distinct from DNS-inside-container.
- * - `servers_unreachable` — resolver was unreachable (UDP:53 dropped).
- *   The typical #2101 signature on corp-firewalled hosts.
- * - `resolution_failed` — resolver answered but lookup failed (NXDOMAIN
- *   or similar). Unusual.
- * - `timeout` / `killed` / `error` — probe couldn't complete.
- * - `no_output` — probe exited cleanly but produced no parseable output.
+ * Analyzes the output of the DNS probe execution to determine the result.
  */
-export function probeContainerDns(opts: ProbeContainerDnsOpts = {}): DnsProbeResult {
-  // We funnel through `sh -c` so we can `2>&1` the docker pull progress
-  // and busybox nslookup diagnostics into stdout — both write the
-  // signatures the parser below depends on (`Error response from daemon`,
-  // `no servers could be reached`) to stderr. probeName is the only
-  // non-constant token interpolated into the shell script: validate it
-  // as a plain DNS name (RFC 1035 label chars) so a crafted override
-  // cannot inject arbitrary shell tokens.
-  const probeName = opts.probeName ?? dnsProbeName();
-  if (!/^[a-z0-9]([a-z0-9.-]{0,253})$/i.test(probeName)) {
-    throw new Error(
-      `probeName must be a plain DNS name (RFC 1035 label characters), got: ${JSON.stringify(probeName)}`,
-    );
-  }
-  const command = opts.command ?? [
-    "sh",
-    "-c",
-    `docker run --rm --pull=missing ${BUSYBOX_PROBE_IMAGE} nslookup ${probeName} 2>&1`,
-  ];
-
-  // Pre-pull the busybox image so the timed probe below measures only
-  // probe time, not registry pull time. A cold-cache pull that times out
-  // here surfaces as an inconclusive image_pull_failed (registry-DNS
-  // signature still routes through isRegistryResolutionFailure), not as
-  // a fatal probe timeout with a misleading "restart Docker" hint.
-  //
-  // Any test seam that injects probe execution (output/execution/command
-  // overrides or runCapture/runProbe replacements) implies the caller is
-  // staying off the real Docker CLI — skip pre-pull so hermetic tests on
-  // hosts without Docker/busybox keep working.
-  const bypassRealDocker =
-    opts.executionOverride !== undefined ||
-    opts.outputOverride !== undefined ||
-    opts.command !== undefined ||
-    opts.runCaptureImpl !== undefined ||
-    opts.runProbeImpl !== undefined;
-  if (!bypassRealDocker || opts.ensureImageCachedOverride !== undefined) {
-    const cached = opts.ensureImageCachedOverride ?? ensureProbeImageCached(BUSYBOX_PROBE_IMAGE);
-    if (!cached.ok) {
-      // inspect_unavailable means the docker daemon itself is wedged
-      // (assessHost said it was reachable, but image-inspect now hangs
-      // or returns "Cannot connect to the Docker daemon"). Treat that as
-      // a fatal docker_daemon_unreachable — distinct from generic
-      // probe `error` reasons that callers may want to keep inconclusive.
-      if (cached.reason === "inspect_unavailable") {
-        return {
-          ok: false,
-          reason: "docker_daemon_unreachable",
-          details: cached.details ?? "docker image inspect did not complete",
-        };
-      }
-      return {
-        ok: false,
-        reason: "image_pull_failed",
-        details: cached.details ?? `docker pull ${BUSYBOX_PROBE_IMAGE} did not complete`,
-        timedOut: cached.reason === "pull_timeout",
-      };
-    }
-  }
-
-  let execution: ReturnType<typeof normalizeProbeExecution>;
-  try {
-    execution = captureProbeExecution(command, PROBE_TIMEOUT_MS, opts);
-  } catch (e) {
-    return {
-      ok: false,
-      reason: "error",
-      details: String((e as Error)?.message ?? e),
-    };
-  }
-
-  const output = probeCombinedOutput(execution);
-  const executionFailure = executionFailureReason(
-    "docker DNS probe",
-    execution,
-    PROBE_TIMEOUT_MS,
-    output,
-  );
-  if (executionFailure) {
-    return {
-      ok: false,
-      ...executionFailure,
-    };
-  }
-
+function analyzeDnsProbeOutput(
+  output: string,
+  execution: ReturnType<typeof normalizeProbeExecution>,
+): DnsProbeResult | null {
   // Treat whitespace-only output (e.g., bare newlines left by a killed
   // child) the same as empty — otherwise the subsequent regex checks all
   // miss and we'd mis-report it as `resolution_failed`.
@@ -1871,11 +1779,122 @@ export function probeContainerDns(opts: ProbeContainerDnsOpts = {}): DnsProbeRes
     };
   }
 
+  return null;
+}
+
+/**
+ * Probe whether DNS resolution works from inside a docker container.
+ * Returns `{ ok: true }` when a busybox test container resolves
+ * `registry.npmjs.org`; otherwise returns a structured `reason` +
+ * truncated `details` so callers can tailor the error message:
+ *
+ * - `image_pull_failed` — the busybox image couldn't be pulled (docker
+ *   daemon can't reach the registry). Distinct from DNS-inside-container.
+ * - `servers_unreachable` — resolver was unreachable (UDP:53 dropped).
+ *   The typical #2101 signature on corp-firewalled hosts.
+ * - `resolution_failed` — resolver answered but lookup failed (NXDOMAIN
+ *   or similar). Unusual.
+ * - `timeout` / `killed` / `error` — probe couldn't complete.
+ * - `no_output` — probe exited cleanly but produced no parseable output.
+ */
+export function probeContainerDns(opts: ProbeContainerDnsOpts = {}): DnsProbeResult {
+  // We funnel through `sh -c` so we can `2>&1` the docker pull progress
+  // and busybox nslookup diagnostics into stdout — both write the
+  // signatures the parser below depends on (`Error response from daemon`,
+  // `no servers could be reached`) to stderr. probeName is the only
+  // non-constant token interpolated into the shell script: validate it
+  // as a plain DNS name (RFC 1035 label chars) so a crafted override
+  // cannot inject arbitrary shell tokens.
+  const probeName = opts.probeName ?? dnsProbeName();
+  if (!/^[a-z0-9]([a-z0-9.-]{0,253})$/i.test(probeName)) {
+    throw new Error(
+      `probeName must be a plain DNS name (RFC 1035 label characters), got: ${JSON.stringify(probeName)}`,
+    );
+  }
+  const command = opts.command ?? [
+    "sh",
+    "-c",
+    `docker run --rm --pull=missing ${BUSYBOX_PROBE_IMAGE} nslookup ${probeName} 2>&1`,
+  ];
+
+  // Pre-pull the busybox image so the timed probe below measures only
+  // probe time, not registry pull time. A cold-cache pull that times out
+  // here surfaces as an inconclusive image_pull_failed (registry-DNS
+  // signature still routes through isRegistryResolutionFailure), not as
+  // a fatal probe timeout with a misleading "restart Docker" hint.
+  //
+  // Any test seam that injects probe execution (output/execution/command
+  // overrides or runCapture/runProbe replacements) implies the caller is
+  // staying off the real Docker CLI — skip pre-pull so hermetic tests on
+  // hosts without Docker/busybox keep working.
+  const bypassRealDocker =
+    opts.executionOverride !== undefined ||
+    opts.outputOverride !== undefined ||
+    opts.command !== undefined ||
+    opts.runCaptureImpl !== undefined ||
+    opts.runProbeImpl !== undefined;
+  if (!bypassRealDocker || opts.ensureImageCachedOverride !== undefined) {
+    const cached = opts.ensureImageCachedOverride ?? ensureProbeImageCached(BUSYBOX_PROBE_IMAGE);
+    if (!cached.ok) {
+      // inspect_unavailable means the docker daemon itself is wedged
+      // (assessHost said it was reachable, but image-inspect now hangs
+      // or returns "Cannot connect to the Docker daemon"). Treat that as
+      // a fatal docker_daemon_unreachable — distinct from generic
+      // probe `error` reasons that callers may want to keep inconclusive.
+      if (cached.reason === "inspect_unavailable") {
+        return {
+          ok: false,
+          reason: "docker_daemon_unreachable",
+          details: cached.details ?? "docker image inspect did not complete",
+        };
+      }
+      return {
+        ok: false,
+        reason: "image_pull_failed",
+        details: cached.details ?? `docker pull ${BUSYBOX_PROBE_IMAGE} did not complete`,
+        timedOut: cached.reason === "pull_timeout",
+      };
+    }
+  }
+
+  let execution: ReturnType<typeof normalizeProbeExecution>;
+  try {
+    execution = captureProbeExecution(command, PROBE_TIMEOUT_MS, opts);
+  } catch (e) {
+    return {
+      ok: false,
+      reason: "error",
+      details: String((e as Error)?.message ?? e),
+    };
+  }
+
+  const output = probeCombinedOutput(execution);
+  const executionFailure = executionFailureReason(
+    "docker DNS probe",
+    execution,
+    PROBE_TIMEOUT_MS,
+    output,
+  );
+  if (executionFailure) {
+    return {
+      ok: false,
+      ...executionFailure,
+    };
+  }
+
+  const analysis = analyzeDnsProbeOutput(output, execution);
+  if (analysis) return analysis;
+
   // Resolver responded but couldn't answer. Only report resolution_failed
   // (fatal) when we actually saw the resolver-identification block from
   // nslookup — otherwise the probe never proved DNS is broken (e.g.
   // unrelated docker daemon output where nslookup never ran), so fall
   // through to inconclusive `error` so onboarding does not falsely abort.
+  const outputLines = output.split(/\r?\n/).map((line) => line.trim());
+  const hasResolverHeader = outputLines.some((line) => {
+    const fields = line.split(/\s+/);
+    return fields[0] === "Server:" && Boolean(fields[1]);
+  });
   if (hasResolverHeader) {
     return {
       ok: false,

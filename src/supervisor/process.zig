@@ -79,14 +79,14 @@ pub const ManagedProcess = struct {
         var fbs = std.io.fixedBufferStream(&path_buf);
         try fbs.writer().print("{s}/{s}.log", .{ log_dir, self.handle.name });
         const log_path = fbs.getWritten();
-        
+
         self.handle.log_path = try self.allocator.dupe(u8, log_path);
 
         const log_file = try std.fs.cwd().createFile(log_path, .{
             .read = true,
             .truncate = false,
         });
-        
+
         try log_file.seekFromEnd(0);
         self.log_file = log_file;
 
@@ -101,18 +101,18 @@ pub const ManagedProcess = struct {
 
     pub fn stop(self: *ManagedProcess) !void {
         if (!self.handle.hasLivePid() or self.child == null) return;
-        
+
         var child = self.child.?;
         _ = try child.kill();
         const term = try child.wait();
-        
+
         const code: ?u8 = switch (term) {
             .Exited => |c| c,
             else => null,
         };
-        
+
         markStopped(&self.handle, code);
-        
+
         if (self.log_file) |f| {
             f.close();
             self.log_file = null;
