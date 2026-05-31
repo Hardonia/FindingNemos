@@ -71,4 +71,33 @@ describe("snapshot oclif commands", () => {
       name: "before-upgrade",
     });
   });
+
+  it("list handles SnapshotCommandError cleanly", async () => {
+    const errorLogSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const originalExitCode = process.exitCode;
+    process.exitCode = undefined;
+
+    runSandboxSnapshot.mockRejectedValue({
+      name: "SnapshotCommandError",
+      exitCode: 42,
+      lines: ["Line 1", "Line 2"],
+    });
+
+    await SnapshotListCommand.run(["alpha"], rootDir);
+
+    expect(errorLogSpy).toHaveBeenCalledWith("Line 1");
+    expect(errorLogSpy).toHaveBeenCalledWith("Line 2");
+    expect(process.exitCode).toBe(42);
+
+    errorLogSpy.mockRestore();
+    process.exitCode = originalExitCode;
+  });
+
+  it("list re-throws non-SnapshotCommandError errors", async () => {
+    const error = new Error("Boom");
+    runSandboxSnapshot.mockRejectedValue(error);
+
+    await expect(SnapshotListCommand.run(["alpha"], rootDir)).rejects.toThrow("Boom");
+  });
 });
