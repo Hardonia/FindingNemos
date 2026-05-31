@@ -81,4 +81,55 @@ describe("share oclif command adapters", () => {
       localMount: "/tmp/alpha",
     });
   });
+
+  it("handles ShareCommandError for mount", async () => {
+    mocks.runShareMount.mockImplementationOnce(() => {
+      throw new mocks.ShareCommandError(["mount error 1", "mount error 2"], 42);
+    });
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const previousExitCode = process.exitCode;
+    process.exitCode = undefined;
+    try {
+      await expect(ShareMountCommand.run(["alpha", "/workspace", "/tmp/alpha"], rootDir)).resolves.toBeUndefined();
+      expect(process.exitCode).toBe(42);
+      expect(error).toHaveBeenCalledWith("mount error 1");
+      expect(error).toHaveBeenCalledWith("mount error 2");
+    } finally {
+      process.exitCode = previousExitCode;
+      error.mockRestore();
+    }
+  });
+
+  it("propagates unknown errors for mount", async () => {
+    const unknownError = new Error("unknown mount error");
+    mocks.runShareMount.mockImplementationOnce(() => {
+      throw unknownError;
+    });
+    await expect(ShareMountCommand.run(["alpha", "/workspace", "/tmp/alpha"], rootDir)).rejects.toThrow(unknownError);
+  });
+
+  it("handles ShareCommandError for unmount", async () => {
+    mocks.runShareUnmount.mockImplementationOnce(() => {
+      throw new mocks.ShareCommandError(["unmount error"], 43);
+    });
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const previousExitCode = process.exitCode;
+    process.exitCode = undefined;
+    try {
+      await expect(ShareUnmountCommand.run(["alpha", "/tmp/alpha"], rootDir)).resolves.toBeUndefined();
+      expect(process.exitCode).toBe(43);
+      expect(error).toHaveBeenCalledWith("unmount error");
+    } finally {
+      process.exitCode = previousExitCode;
+      error.mockRestore();
+    }
+  });
+
+  it("propagates unknown errors for unmount", async () => {
+    const unknownError = new Error("unknown unmount error");
+    mocks.runShareUnmount.mockImplementationOnce(() => {
+      throw unknownError;
+    });
+    await expect(ShareUnmountCommand.run(["alpha", "/tmp/alpha"], rootDir)).rejects.toThrow(unknownError);
+  });
 });
