@@ -168,6 +168,16 @@ describe("sandbox oclif command adapters", () => {
     }
   });
 
+
+  it("re-throws generic errors during config actions", async () => {
+    const error = new Error("generic error");
+    mocks.configGet.mockImplementationOnce(() => {
+      throw error;
+    });
+
+    await expect(SandboxConfigGetCommand.run(["alpha"], rootDir)).rejects.toThrow(error);
+  });
+
   it("maps doctor and shields commands to action helpers", async () => {
     await SandboxDoctorCliCommand.run(["alpha", "--json"], rootDir);
     await ShieldsDownCommand.run(
