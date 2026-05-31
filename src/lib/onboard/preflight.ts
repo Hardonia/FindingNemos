@@ -496,6 +496,55 @@ export function buildContainerToolkitBootstrapCommands(
   ];
 }
 
+
+function getProcVersion(opts: AssessHostOpts, readFileImpl: (path: string, encoding: "utf-8" | BufferEncoding) => string): string {
+  if (opts.procVersion !== undefined) {
+    return opts.procVersion;
+  }
+  try {
+    return readFileImpl("/proc/version", "utf-8");
+  } catch {
+    return "";
+  }
+}
+
+function fetchDockerInfoState(opts: AssessHostOpts, dockerInstalled: boolean, runCaptureImpl: RunCaptureFn) {
+  let dockerInfoOutput = opts.dockerInfoOutput;
+  let dockerReachable = false;
+  let dockerRunning = false;
+  if (dockerInstalled && dockerInfoOutput === undefined) {
+    dockerInfoOutput = runCaptureImpl(["docker", "info", "--format", "{{json .}}"], {
+      ignoreError: true,
+    });
+  }
+  if (dockerInstalled && isDockerDaemonReachable(dockerInfoOutput)) {
+    dockerReachable = true;
+    dockerRunning = true;
+  }
+  return { dockerInfoOutput, dockerReachable, dockerRunning };
+}
+
+function detectDockerServiceState(
+  platform: NodeJS.Platform | string,
+  systemctlAvailable: boolean,
+  dockerInstalled: boolean,
+  runCaptureImpl: RunCaptureFn
+) {
+  const isActive =
+    platform === "linux" && systemctlAvailable && dockerInstalled
+      ? parseSystemctlState(
+          runCaptureImpl(["systemctl", "is-active", "docker"], { ignoreError: true }),
+        )
+      : null;
+  const isEnabled =
+    platform === "linux" && systemctlAvailable && dockerInstalled
+      ? parseSystemctlState(
+          runCaptureImpl(["systemctl", "is-enabled", "docker"], { ignoreError: true }),
+        )
+      : null;
+  return { dockerServiceActive: isActive, dockerServiceEnabled: isEnabled };
+}
+
 export function assessHost(opts: AssessHostOpts = {}): HostAssessment {
   const platform = opts.platform ?? process.platform;
   const env = opts.env ?? process.env;
@@ -516,29 +565,10 @@ export function assessHost(opts: AssessHostOpts = {}): HostAssessment {
   const packageManager = detectPackageManager(runCaptureImpl);
   const systemctlAvailable = commandExists("systemctl", runCaptureImpl);
 
-  let dockerInfoOutput = opts.dockerInfoOutput;
-  let dockerReachable = false;
-  let dockerRunning = false;
-  if (dockerInstalled && dockerInfoOutput === undefined) {
-    dockerInfoOutput = runCaptureImpl(["docker", "info", "--format", "{{json .}}"], {
-      ignoreError: true,
-    });
-  }
-  if (dockerInstalled && isDockerDaemonReachable(dockerInfoOutput)) {
-    dockerReachable = true;
-    dockerRunning = true;
-  }
+  const { dockerInfoOutput, dockerReachable, dockerRunning } = fetchDockerInfoState(opts, dockerInstalled, runCaptureImpl);
 
   const release = opts.release ?? os.release();
-  const procVersion =
-    opts.procVersion ??
-    (() => {
-      try {
-        return readFileImpl("/proc/version", "utf-8");
-      } catch {
-        return "";
-      }
-    })();
+  const procVersion = getProcVersion(opts, readFileImpl as any);
   let runtime = inferContainerRuntime(dockerInfoOutput);
   if (dockerReachable && runtime === "unknown" && platform === "linux") {
     runtime = "docker";
@@ -596,18 +626,7 @@ export function assessHost(opts: AssessHostOpts = {}): HostAssessment {
     dockerStorageDriver === "overlayfs" &&
     dockerUsesContainerdSnapshotter;
   const dockerDefaultCgroupnsMode = readDockerDefaultCgroupnsMode(readFileImpl);
-  const dockerServiceActive =
-    platform === "linux" && systemctlAvailable && dockerInstalled
-      ? parseSystemctlState(
-          runCaptureImpl(["systemctl", "is-active", "docker"], { ignoreError: true }),
-        )
-      : null;
-  const dockerServiceEnabled =
-    platform === "linux" && systemctlAvailable && dockerInstalled
-      ? parseSystemctlState(
-          runCaptureImpl(["systemctl", "is-enabled", "docker"], { ignoreError: true }),
-        )
-      : null;
+  const { dockerServiceActive, dockerServiceEnabled } = detectDockerServiceState(platform, systemctlAvailable, dockerInstalled, runCaptureImpl);
   const assessment: HostAssessment = {
     platform,
     isWsl: isWslHost,
