@@ -64,7 +64,6 @@ export interface RebuildManifest {
   backupPath: string;
   blueprintDigest: string | null;
   policyPresets?: string[];
-  instances?: InstanceBackup[];
   // Optional user-provided label for `snapshot restore <name>`.
   name?: string;
 }
@@ -78,13 +77,6 @@ export interface BackupOptions {
   name?: string | null;
 }
 
-export interface InstanceBackup {
-  instanceId: string;
-  agentType: string;
-  dataDir: string;
-  stateDirs: string[];
-  backedUpDirs: string[];
-}
 
 export type StateFileStrategy = "copy" | "sqlite_backup";
 
@@ -139,15 +131,6 @@ function isStateFileSpec(value: unknown): value is StateFileSpec {
   );
 }
 
-function isInstanceBackup(value: unknown): value is InstanceBackup {
-  if (!isRecord(value) || !isStateDirArray(value.stateDirs)) return false;
-  return (
-    typeof value.instanceId === "string" &&
-    typeof value.agentType === "string" &&
-    typeof value.dataDir === "string" &&
-    isBackedUpDirArray(value.backedUpDirs, value.stateDirs)
-  );
-}
 
 function isRebuildManifest(value: unknown): value is RebuildManifest {
   if (!isRecord(value) || !isStateDirArray(value.stateDirs)) return false;
@@ -168,9 +151,6 @@ function isRebuildManifest(value: unknown): value is RebuildManifest {
       value.blueprintDigest === null ||
       typeof value.blueprintDigest === "string") &&
     (value.policyPresets === undefined || isStringArray(value.policyPresets)) &&
-    (value.instances === undefined ||
-      (Array.isArray(value.instances) &&
-        value.instances.every((entry) => isInstanceBackup(entry)))) &&
     (value.name === undefined || typeof value.name === "string")
   );
 }
