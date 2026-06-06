@@ -94,6 +94,13 @@ describe("sandbox base image helpers", () => {
   it("parses glibc versions from ldd output", () => {
     expect(parseGlibcVersion("ldd (Debian GLIBC 2.41-12+deb13u2) 2.41")).toBe("2.41");
     expect(parseGlibcVersion("ldd (Ubuntu GLIBC 2.39-0ubuntu8.6) 2.39")).toBe("2.39");
+    expect(parseGlibcVersion("ldd (Ubuntu 2.39-0ubuntu8.6) 2.39")).toBe("2.39");
+    expect(parseGlibcVersion(" 2.40 ")).toBe("2.40");
+    expect(parseGlibcVersion("GLIBC 2.38")).toBe("2.38");
+    expect(parseGlibcVersion("")).toBe(null);
+    expect(parseGlibcVersion(null)).toBe(null);
+    expect(parseGlibcVersion(undefined)).toBe(null);
+    expect(parseGlibcVersion("some random text")).toBe(null);
   });
 
   it("compares glibc versions numerically", () => {
