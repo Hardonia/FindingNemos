@@ -17,10 +17,10 @@ pub const AuditLog = struct {
             .read = false,
             .truncate = false,
         });
-        
+
         // Seek to end to append
         try file.seekFromEnd(0);
-        
+
         return AuditLog{
             .file = file,
             .mutex = .{},
@@ -39,10 +39,10 @@ pub const AuditLog = struct {
         w.field("type", event_type);
         w.field("details", details);
         w.endObject();
-        
+
         const payload = w.getWritten();
         try self.file.writer().print("{s}\n", .{payload});
-        
+
         // Ensure the write is synced to disk for audit reliability
         try self.file.sync();
     }
@@ -57,15 +57,15 @@ test "audit log append" {
     // We don't want to pollute the filesystem in normal tests,
     // but we can verify it compiles. Real tests would use a temp dir.
     const path = "test_audit.jsonl";
-    
+
     // Create
     var audit = try AuditLog.init(path);
     defer audit.deinit();
     defer std.fs.cwd().deleteFile(path) catch {};
-    
+
     // Log
     try audit.logEvent("test_start", "running unit tests");
-    
+
     // Verify file exists and has content
     const stat = try std.fs.cwd().statFile(path);
     try std.testing.expect(stat.size > 0);
