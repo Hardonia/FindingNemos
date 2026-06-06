@@ -179,9 +179,25 @@ describe("sandbox base image helpers", () => {
   it("accepts Buffer streams from spawnSync", () => {
     const output = formatBuildFailureDiagnostics({
       stderr: Buffer.from("buffered build error", "utf8"),
-      stdout: null,
+      stdout: Buffer.from("buffered stdout error", "utf8"),
     });
-    expect(output).toContain("buffered build error");
+    expect(output).toContain("buffered build error\nbuffered stdout error");
+  });
+
+  it("handles non-string, non-buffer inputs by converting to string", () => {
+    const output = formatBuildFailureDiagnostics({
+      stderr: 12345,
+      stdout: { toString: () => "custom object" },
+    });
+    expect(output).toBe("12345\ncustom object");
+  });
+
+  it("ignores whitespace-only streams", () => {
+    const output = formatBuildFailureDiagnostics({
+      stderr: "   \n\t  ",
+      stdout: "  build error  ",
+    });
+    expect(output).toBe("build error");
   });
 
   it("detects committed Dockerfile.base changes relative to origin/main", () => {
