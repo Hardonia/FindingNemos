@@ -18,7 +18,7 @@ pub const DockerConfig = struct {
 /// Check Docker availability by attempting to run `docker --version`.
 pub fn checkAvailability(allocator: std.mem.Allocator) state.Availability {
     const argv = &[_][]const u8{ "docker", "--version" };
-    
+
     // We just want to check if the command runs, ignore output
     const result = std.process.Child.run(.{
         .allocator = allocator,
@@ -44,23 +44,23 @@ pub fn createContainerProcess(
 ) !process.ManagedProcess {
     var cmd_builder = std.ArrayList(u8).init(allocator);
     defer cmd_builder.deinit();
-    
+
     const writer = cmd_builder.writer();
-    
+
     // docker run --name <name> --rm
     try writer.print("docker run --name {s} --rm", .{name});
-    
+
     // Limits
     try writer.print(" -m {d}m --cpus={d:.1}", .{ config.memory_mb, config.cpu_limit });
-    
+
     // Networking
     if (config.network_none) {
         try writer.print(" --network none", .{});
     }
-    
+
     // Image
     try writer.print(" {s}", .{config.image});
-    
+
     // User command
     for (cmd_args) |arg| {
         try writer.print(" {s}", .{arg});
@@ -68,7 +68,7 @@ pub fn createContainerProcess(
 
     const full_cmd = try cmd_builder.toOwnedSlice();
     // caller owns full_cmd memory
-    
+
     return process.ManagedProcess.init(allocator, name, full_cmd);
 }
 
@@ -83,7 +83,7 @@ test "container process formatting" {
     var p = try createContainerProcess(allocator, "test-box", .{}, args);
     defer p.deinit();
     defer allocator.free(p.handle.command);
-    
+
     // Check if the command starts with "docker run"
     try std.testing.expect(std.mem.startsWith(u8, p.handle.command, "docker run"));
 }
