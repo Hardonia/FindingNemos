@@ -133,7 +133,7 @@ function restoreFixed(
   let written = false;
   const root = trustedRoot || os.homedir();
 
-  // FIX: validate manifest.homeDir is within trusted root
+  // validate manifest.homeDir is within trusted root
   if (typeof manifest.homeDir !== "string" || !isWithinRoot(manifest.homeDir, root)) {
     errors.push(
       `Snapshot manifest homeDir is outside the trusted host root. ` +
@@ -142,7 +142,7 @@ function restoreFixed(
     return { result: false, errors, written };
   }
 
-  // FIX: validate stateDir type and containment
+  // validate stateDir type and containment
   if (typeof manifest.stateDir !== "string") {
     errors.push(`Snapshot manifest stateDir is not a string.`);
     return { result: false, errors, written };
