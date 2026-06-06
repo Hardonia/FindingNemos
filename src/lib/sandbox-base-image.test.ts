@@ -184,6 +184,32 @@ describe("sandbox base image helpers", () => {
     expect(output).toContain("buffered build error");
   });
 
+  it("ignores whitespace-only streams", () => {
+    expect(
+      formatBuildFailureDiagnostics({
+        stderr: "   \n\t  ",
+        stdout: "\n\n",
+      })
+    ).toBe("");
+  });
+
+  it("handles non-string, non-buffer stream values gracefully", () => {
+    const output = formatBuildFailureDiagnostics({
+      stderr: 12345,
+      stdout: false,
+    });
+    expect(output).toBe("12345\nfalse");
+  });
+
+  it("handles when stdout is a Buffer and stderr is a Buffer", () => {
+    const output = formatBuildFailureDiagnostics({
+      stderr: Buffer.from("err buf"),
+      stdout: Buffer.from("out buf"),
+    });
+    expect(output).toBe("err buf\nout buf");
+  });
+
+
   it("detects committed Dockerfile.base changes relative to origin/main", () => {
     const root = createGitFixture();
     git(root, ["switch", "-c", "feature"]);

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # SPDX-License-Identifier: Apache-2.0
 # FindingNemos — smoke test
 #
@@ -31,7 +34,7 @@ echo ""
 
 # 4. Doctor
 echo "--- findingnemos doctor ---"
-$BINARY doctor || true  # May return degraded (exit 5), that's OK
+$BINARY doctor || true # May return degraded (exit 5), that's OK
 echo ""
 
 # 5. Status JSON
@@ -50,7 +53,7 @@ $BINARY policy check --host api.openai.com --config config/policy.example.toml
 echo ""
 
 echo "--- findingnemos policy check (SSRF target) ---"
-$BINARY policy check --host 169.254.169.254 || true  # Expected: exit 4 (denied)
+$BINARY policy check --host 169.254.169.254 || true # Expected: exit 4 (denied)
 echo ""
 
 # 8. Proofpack export
@@ -62,10 +65,10 @@ echo ""
 
 # Verify proofpack files exist
 if [ -f "$PROOF_DIR/proofpack.json" ] && [ -f "$PROOF_DIR/proofpack.md" ]; then
-    echo "Proofpack files verified."
+  echo "Proofpack files verified."
 else
-    echo "ERROR: Proofpack files missing!"
-    exit 1
+  echo "ERROR: Proofpack files missing!"
+  exit 1
 fi
 
 echo ""

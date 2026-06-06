@@ -40,7 +40,7 @@ pub fn verifyIsolation(allocator: std.mem.Allocator, config: IsolationConfig, ac
 
     // In a real implementation, we would check other parameters (user ns, ro-root, caps).
     // For Phase 3 scaffold, we assume they are degraded unless explicitly provided by an OS API.
-    
+
     if (config.require_user_namespace) {
         try reasons.append("user namespace mapping not verified");
         level = .degraded;
@@ -64,10 +64,10 @@ test "verify strict isolation" {
         .require_read_only_root = false,
         .drop_all_capabilities = false,
     };
-    
+
     const report = try verifyIsolation(allocator, config, "none");
     defer allocator.free(report.reasons);
-    
+
     try std.testing.expectEqual(IsolationLevel.strict, report.level);
     try std.testing.expectEqual(@as(usize, 0), report.reasons.len);
 }
@@ -80,10 +80,10 @@ test "verify degraded isolation" {
         .require_read_only_root = false,
         .drop_all_capabilities = false,
     };
-    
+
     const report = try verifyIsolation(allocator, config, "bridge");
     defer allocator.free(report.reasons);
-    
+
     try std.testing.expectEqual(IsolationLevel.degraded, report.level);
     try std.testing.expectEqual(@as(usize, 1), report.reasons.len);
 }
