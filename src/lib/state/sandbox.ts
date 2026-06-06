@@ -178,21 +178,14 @@ function isRebuildManifest(value: unknown): value is RebuildManifest {
 // ── Safe tar extraction ──────────────────────────────────────────
 
 /**
- * Normalize a host path for safe comparison.
- * Mirrors migration-state.ts normalizeHostPath().
- */
-function normalizeHostPath(input: string): string {
-  const resolved = path.resolve(input);
-  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
-}
-
-/**
  * Check whether candidatePath is within rootPath after normalization.
  * Mirrors migration-state.ts isWithinRoot().
  */
 function isWithinRoot(candidatePath: string, rootPath: string): boolean {
-  const candidate = normalizeHostPath(candidatePath);
-  const root = normalizeHostPath(rootPath);
+  const candidateResolved = path.resolve(candidatePath);
+  const rootResolved = path.resolve(rootPath);
+  const candidate = process.platform === "win32" ? candidateResolved.toLowerCase() : candidateResolved;
+  const root = process.platform === "win32" ? rootResolved.toLowerCase() : rootResolved;
   const relative = path.relative(root, candidate);
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
