@@ -82,27 +82,59 @@ describe("validateRelativePath", () => {
     expect(validateRelativePath("SKILL.md")).toBe(true);
     expect(validateRelativePath("scripts/helper.js")).toBe(true);
     expect(validateRelativePath("data/config-v2.yaml")).toBe(true);
+    // Valid extensions and dots in filename
+    expect(validateRelativePath("foo.txt")).toBe(true);
+    expect(validateRelativePath("foo.bar.js")).toBe(true);
+    expect(validateRelativePath("script-v1_final.sh")).toBe(true);
   });
 
-  it("rejects shell metacharacters", () => {
+  it("rejects shell metacharacters and invalid characters", () => {
     expect(validateRelativePath("$(touch /tmp/pwn).js")).toBe(false);
     expect(validateRelativePath("a'b.txt")).toBe(false);
     expect(validateRelativePath('a"b.txt')).toBe(false);
     expect(validateRelativePath("a`b`.txt")).toBe(false);
     expect(validateRelativePath("file name.txt")).toBe(false);
     expect(validateRelativePath("a;rm -rf.txt")).toBe(false);
+    expect(validateRelativePath("a&b.txt")).toBe(false);
+    expect(validateRelativePath("a|b.txt")).toBe(false);
+    expect(validateRelativePath("a<b.txt")).toBe(false);
+    expect(validateRelativePath("a>b.txt")).toBe(false);
+    expect(validateRelativePath("a\\b.txt")).toBe(false);
+    expect(validateRelativePath("a\\0b.txt")).toBe(false); // null byte
   });
 
-  it("rejects directory traversal", () => {
+  it("rejects directory traversal and relative dot paths", () => {
+    // Pure dots
+    expect(validateRelativePath(".")).toBe(false);
+    expect(validateRelativePath("..")).toBe(false);
+
+    // Starting with dots
     expect(validateRelativePath("../escape")).toBe(false);
-    expect(validateRelativePath("foo/../../etc/passwd")).toBe(false);
     expect(validateRelativePath("./current")).toBe(false);
+
+    // Embedded dots
+    expect(validateRelativePath("foo/./bar")).toBe(false);
+    expect(validateRelativePath("foo/../bar")).toBe(false);
+    expect(validateRelativePath("foo/../../etc/passwd")).toBe(false);
+
+    // Ending with dots
+    expect(validateRelativePath("foo/.")).toBe(false);
+    expect(validateRelativePath("foo/..")).toBe(false);
   });
 
   it("rejects empty and degenerate paths", () => {
     expect(validateRelativePath("")).toBe(false);
+
+    // Absolute paths (starts with slash, resulting in an empty first segment)
     expect(validateRelativePath("/absolute")).toBe(false);
+    expect(validateRelativePath("/")).toBe(false);
+
+    // Multiple slashes (resulting in an empty segment)
     expect(validateRelativePath("foo//bar")).toBe(false);
+
+    // Trailing slashes (resulting in an empty last segment)
+    expect(validateRelativePath("foo/bar/")).toBe(false);
+    expect(validateRelativePath("dir/")).toBe(false);
   });
 });
 
