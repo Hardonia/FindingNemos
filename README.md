@@ -206,3 +206,5 @@ See [docs/roadmap.md](docs/roadmap.md) for the full roadmap.
 ## License
 
 Apache 2.0. See [LICENSE](LICENSE).
+<!-- platform-matrix:begin -->
+<!-- platform-matrix:end -->
