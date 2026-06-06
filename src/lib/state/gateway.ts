@@ -27,12 +27,13 @@ export type SandboxState = "ready" | "not_ready" | "missing";
 
 function parseSandboxRow(output: string, sandboxName: string): string[] | null {
   if (typeof output !== "string") return null;
-  const clean = stripAnsi(output);
-  for (const line of clean.split("\n")) {
-    const cols = line.trim().split(/\s+/);
-    if (cols[0] === sandboxName) return cols;
-  }
-  return null;
+
+  return (
+    stripAnsi(output)
+      .split("\n")
+      .map((line) => line.trim().split(/\s+/))
+      .find((cols) => cols[0] === sandboxName) ?? null
+  );
 }
 
 export function parseSandboxStatus(output: string, sandboxName: string): string | null {
