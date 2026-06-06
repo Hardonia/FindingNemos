@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 // Import from compiled dist/ so coverage is attributed correctly.
-import { parseGatewayPort, parsePort } from "../../../dist/lib/core/ports";
+import { parseGatewayPort, parsePort, validateGatewayPort } from "../../../dist/lib/core/ports";
 
 const GATEWAY_VALIDATION_OPTIONS = {
   dashboardPort: 18789,
@@ -78,6 +78,68 @@ describe("parsePort", () => {
   it("rejects special characters that could break pgrep patterns", () => {
     process.env[ENV_KEY] = ".*";
     expect(() => parsePort(ENV_KEY, 8080)).toThrow("Invalid port");
+  });
+});
+
+describe("validateGatewayPort", () => {
+  const ENV_KEY = "TEST_ENV_VAR";
+  const OPTIONS = {
+    dashboardPort: 20000,
+    dashboardRangeStart: 18789,
+    dashboardRangeEnd: 18799,
+    vllmPort: 20001,
+    ollamaPort: 20002,
+    ollamaProxyPort: 20003,
+    bedrockRuntimeAdapterPort: 20004,
+  };
+
+  it("does not throw for a valid non-conflicting port", () => {
+    expect(() => validateGatewayPort(ENV_KEY, 8080, OPTIONS)).not.toThrow();
+  });
+
+  describe("dashboard port range boundaries", () => {
+    it("throws when port is exactly at dashboardRangeStart", () => {
+      expect(() => validateGatewayPort(ENV_KEY, 18789, OPTIONS)).toThrow("18789-18799");
+    });
+
+    it("throws when port is exactly at dashboardRangeEnd", () => {
+      expect(() => validateGatewayPort(ENV_KEY, 18799, OPTIONS)).toThrow("18789-18799");
+    });
+
+    it("throws when port is inside the dashboard range", () => {
+      expect(() => validateGatewayPort(ENV_KEY, 18795, OPTIONS)).toThrow("18789-18799");
+    });
+
+    it("does not throw when port is just below dashboardRangeStart", () => {
+      expect(() => validateGatewayPort(ENV_KEY, 18788, OPTIONS)).not.toThrow();
+    });
+
+    it("does not throw when port is just above dashboardRangeEnd", () => {
+      expect(() => validateGatewayPort(ENV_KEY, 18800, OPTIONS)).not.toThrow();
+    });
+  });
+
+  describe("reserved defaults", () => {
+    it.each([
+      [8000, "vLLM / NIM inference"],
+      [11434, "Ollama inference"],
+      [11435, "Ollama auth proxy"],
+      [11436, "Bedrock Runtime adapter"],
+    ])("throws when port overlaps with reserved default %s (%s)", (port, label) => {
+      expect(() => validateGatewayPort(ENV_KEY, port, OPTIONS)).toThrow(label);
+    });
+  });
+
+  describe("configured options conflicts", () => {
+    it.each([
+      ["NEMOCLAW_DASHBOARD_PORT", OPTIONS.dashboardPort],
+      ["NEMOCLAW_VLLM_PORT", OPTIONS.vllmPort],
+      ["NEMOCLAW_OLLAMA_PORT", OPTIONS.ollamaPort],
+      ["NEMOCLAW_OLLAMA_PROXY_PORT", OPTIONS.ollamaProxyPort],
+      ["NEMOCLAW_BEDROCK_RUNTIME_ADAPTER_PORT", OPTIONS.bedrockRuntimeAdapterPort],
+    ])("throws when port conflicts with configured %s (%s)", (envVar, port) => {
+      expect(() => validateGatewayPort(ENV_KEY, port, OPTIONS)).toThrow(envVar);
+    });
   });
 });
 
