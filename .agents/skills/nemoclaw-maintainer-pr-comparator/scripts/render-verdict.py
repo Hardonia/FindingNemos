@@ -46,7 +46,7 @@ TIER_1_WEIGHT = 2.0
 TIER_2_WEIGHT = 1.0
 
 
-def status_emoji(status: str) -> str:
+def normalize_status(status: str) -> str:
     """Map a check status to a short label. Matches templates/verdict.md."""
     return {
         "pass": "pass",
@@ -88,7 +88,7 @@ def render_scorecard(prs: list[dict[str, Any]]) -> str:
         label = key.replace("_", " ").capitalize()
         row = [label]
         for pr in prs:
-            row.append(status_emoji(pr.get("tier_0", {}).get(key, "fail")))
+            row.append(normalize_status(pr.get("tier_0", {}).get(key, "fail")))
         rows.append(row)
 
     # Tier 1
@@ -105,7 +105,7 @@ def render_scorecard(prs: list[dict[str, Any]]) -> str:
         label = key.replace("_", " ").capitalize()
         row = [label]
         for pr in prs:
-            row.append(status_emoji(pr.get("tier_1", {}).get(key, "fail")))
+            row.append(normalize_status(pr.get("tier_1", {}).get(key, "fail")))
         rows.append(row)
 
     # Tier 2
@@ -120,7 +120,7 @@ def render_scorecard(prs: list[dict[str, Any]]) -> str:
         label = key.replace("_", " ").capitalize()
         row = [label]
         for pr in prs:
-            row.append(status_emoji(pr.get("tier_2", {}).get(key, "fail")))
+            row.append(normalize_status(pr.get("tier_2", {}).get(key, "fail")))
         rows.append(row)
 
     # Weighted score row
