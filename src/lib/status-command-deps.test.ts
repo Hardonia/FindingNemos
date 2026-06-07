@@ -1,11 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createRequire } from "node:module";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
 const { buildStatusCommandDeps } =
@@ -36,6 +36,66 @@ describe("buildStatusCommandDeps", () => {
       process.env.NEMOCLAW_OPENSHELL_BIN = previousOverride;
     }
     fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("handles missing openshell binary when checking messaging bridge health", () => {
+    // Delete the openshell binary to simulate its absence (if it exists)
+    if (fs.existsSync(openshell)) {
+      fs.unlinkSync(openshell);
+    }
+    // Also clear the override so it resolves to null
+    const prev = process.env.NEMOCLAW_OPENSHELL_BIN;
+    delete process.env.NEMOCLAW_OPENSHELL_BIN;
+
+    const deps = buildStatusCommandDeps(tmp);
+    expect(deps.checkMessagingBridgeHealth!("alpha", ["telegram"])).toEqual([]);
+
+    if (prev) {
+      process.env.NEMOCLAW_OPENSHELL_BIN = prev;
+    }
+  });
+
+  it("handles non-finite or zero counts gracefully", () => {
+    writeExecutable(
+      openshell,
+      [
+        "#!/usr/bin/env bash",
+        'if [ "$1" = "sandbox" ] && [ "$2" = "exec" ]; then',
+        "  # Output a non-number (which parses to NaN) or zero",
+        '  printf "invalid\n"',
+        "  exit 0",
+        "fi",
+        "exit 0",
+      ].join("\n"),
+    );
+
+    const deps = buildStatusCommandDeps(tmp);
+    expect(deps.checkMessagingBridgeHealth!("alpha", ["telegram"])).toEqual([]);
+
+    writeExecutable(
+      openshell,
+      [
+        "#!/usr/bin/env bash",
+        'if [ "$1" = "sandbox" ] && [ "$2" = "exec" ]; then',
+        '  printf "0\n"',
+        "  exit 0",
+        "fi",
+        "exit 0",
+      ].join("\n"),
+    );
+    expect(deps.checkMessagingBridgeHealth!("alpha", ["telegram"])).toEqual([]);
+  });
+
+  it("handles spawnSync exceptions gracefully", () => {
+    // Write a broken openshell binary that throws when executed
+    // We can simulate spawnSync throwing by creating a directory where the executable should be
+    if (fs.existsSync(openshell)) {
+      fs.unlinkSync(openshell);
+    }
+    fs.mkdirSync(openshell);
+
+    const deps = buildStatusCommandDeps(tmp);
+    expect(deps.checkMessagingBridgeHealth!("alpha", ["telegram"])).toEqual([]);
   });
 
   it("detects Telegram conflict signatures from the gateway log", () => {
