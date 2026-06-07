@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { createRequire } from "node:module";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -243,5 +243,59 @@ describe("Hermes provider OpenShell credential handoff", () => {
       else process.env.HOME = originalHome;
       fs.rmSync(tmp, { recursive: true, force: true });
     }
+  });
+});
+
+describe("registerHermesInferenceProvider", () => {
+  it("throws an error if the API key is empty or whitespace", () => {
+    const auth = loadAuth();
+    const runOpenshell = () => ({ status: 0, stdout: "", stderr: "" });
+    expect(() => auth.registerHermesInferenceProvider("", runOpenshell)).toThrow(
+      "Hermes Provider credential is empty"
+    );
+    expect(() => auth.registerHermesInferenceProvider("   ", runOpenshell)).toThrow(
+      "Hermes Provider credential is empty"
+    );
+  });
+
+  it("throws an error if upsertProvider fails", () => {
+    const auth = loadAuth();
+    const runOpenshell = (args: string[]) => {
+      // Mock failure for provider create/update commands
+      if (args[0] === "provider" && (args[1] === "create" || args[1] === "update")) {
+        return { status: 1, stdout: "", stderr: "Mock upsert failure" };
+      }
+      return { status: 0, stdout: "", stderr: "" };
+    };
+    expect(() => auth.registerHermesInferenceProvider("valid-key", runOpenshell)).toThrow(
+      /failed to upsert provider 'hermes-provider'|Mock upsert failure/
+    );
+  });
+
+  it("succeeds when upsertProvider succeeds", () => {
+    const auth = loadAuth();
+    const calls: Array<{ args: string[]; env?: Record<string, string> }> = [];
+    const runOpenshell = (args: string[], opts: { env?: Record<string, string> } = {}) => {
+      calls.push({ args, env: opts.env });
+      if (args[0] === "provider" && args[1] === "get") {
+        return { status: 1, stdout: "", stderr: "" };
+      }
+      return { status: 0, stdout: "", stderr: "" };
+    };
+    expect(() =>
+      auth.registerHermesInferenceProvider(
+        "valid-key",
+        runOpenshell,
+        "MY_CREDENTIAL_ENV",
+        "https://my.base.url"
+      )
+    ).not.toThrow();
+
+    expect(calls.some((call) => call.args.includes("hermes-provider"))).toBe(true);
+    expect(calls.some((call) => call.args.includes("MY_CREDENTIAL_ENV"))).toBe(true);
+    expect(calls.some((call) => call.env?.MY_CREDENTIAL_ENV === "valid-key")).toBe(true);
+    expect(
+      calls.some((call) => call.args.includes("OPENAI_BASE_URL=https://my.base.url"))
+    ).toBe(true);
   });
 });
