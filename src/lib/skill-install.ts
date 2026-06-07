@@ -302,17 +302,27 @@ export function postInstall(
 /**
  * Check whether a skill already exists on the sandbox at the upload path.
  */
-export function checkExisting(ctx: SshContext, paths: SkillPaths): boolean {
+export function checkExisting(
+  ctx: SshContext,
+  paths: SkillPaths,
+  opts: { sshExecImpl?: typeof sshExec } = {},
+): boolean {
+  const runSsh = opts.sshExecImpl ?? sshExec;
   const target = shellQuote(`${paths.uploadDir}/SKILL.md`);
-  const result = sshExec(ctx, `test -f ${target} && echo EXISTS`);
+  const result = runSsh(ctx, `test -f ${target} && echo EXISTS`);
   return result !== null && result.stdout === "EXISTS";
 }
 
 /**
  * Verify the SKILL.md file exists on the sandbox at the expected path.
  */
-export function verifyInstall(ctx: SshContext, paths: SkillPaths): boolean {
+export function verifyInstall(
+  ctx: SshContext,
+  paths: SkillPaths,
+  opts: { sshExecImpl?: typeof sshExec } = {},
+): boolean {
+  const runSsh = opts.sshExecImpl ?? sshExec;
   const target = shellQuote(`${paths.uploadDir}/SKILL.md`);
-  const result = sshExec(ctx, `test -f ${target} && echo EXISTS`);
+  const result = runSsh(ctx, `test -f ${target} && echo EXISTS`);
   return result !== null && result.stdout === "EXISTS";
 }
