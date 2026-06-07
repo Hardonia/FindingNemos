@@ -1,18 +1,19 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect } from "vitest";
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
 // Import from compiled dist/ so coverage is attributed correctly.
 import {
-  parseFrontmatter,
-  resolveSkillPaths,
+  checkExisting,
   collectFiles,
+  parseFrontmatter,
   postInstall,
-  validateRelativePath,
+  resolveSkillPaths,
   shellQuote,
+  validateRelativePath,
 } from "../../dist/lib/skill-install";
 
 describe("parseFrontmatter", () => {
@@ -267,5 +268,45 @@ describe("postInstall", () => {
     } finally {
       rmSync(skillDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("checkExisting", () => {
+  it("returns true when sshExec returns EXISTS", () => {
+    const result = checkExisting(
+      { configFile: "/tmp/ssh", sandboxName: "test" },
+      { uploadDir: "/sandbox/skills/test", sessionFile: null, isOpenClaw: false },
+      {
+        sshExecImpl: (_ctx, command) => {
+          expect(command).toContain("test -f '/sandbox/skills/test/SKILL.md'");
+          return { status: 0, stdout: "EXISTS", stderr: "" };
+        },
+      }
+    );
+    expect(result).toBe(true);
+  });
+
+  it("returns false when sshExec returns empty stdout", () => {
+    const result = checkExisting(
+      { configFile: "/tmp/ssh", sandboxName: "test" },
+      { uploadDir: "/sandbox/skills/test", sessionFile: null, isOpenClaw: false },
+      {
+        sshExecImpl: () => {
+          return { status: 1, stdout: "", stderr: "" };
+        },
+      }
+    );
+    expect(result).toBe(false);
+  });
+
+  it("returns false when sshExec returns null", () => {
+    const result = checkExisting(
+      { configFile: "/tmp/ssh", sandboxName: "test" },
+      { uploadDir: "/sandbox/skills/test", sessionFile: null, isOpenClaw: false },
+      {
+        sshExecImpl: () => null,
+      }
+    );
+    expect(result).toBe(false);
   });
 });
