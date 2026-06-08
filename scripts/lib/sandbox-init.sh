@@ -61,6 +61,31 @@ _SANDBOX_INIT_LOADED=1
 # SECURITY: write to a temp file in the same directory, then atomically rename
 # it into place. This closes the rm+recreate race where another user could
 # recreate the destination as a symlink between unlink and open.
+emit_restricted_log() {
+  local path="$1"
+  local owner_group="$2"
+  local mode="$3"
+  local dir base tmp
+
+  dir="$(dirname "$path")"
+  base="$(basename "$path")"
+  tmp="$(mktemp "${dir}/.${base}.tmp.XXXXXX")" || return 1
+
+  : >"$tmp"
+  if [ "$(id -u)" -eq 0 ] && ! chown "$owner_group" "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  if ! chmod "$mode" "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  if ! mv -f "$tmp" "$path"; then
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
 emit_sandbox_sourced_file() {
   local path="$1"
   local dir base tmp
