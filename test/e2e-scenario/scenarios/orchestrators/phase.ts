@@ -33,12 +33,13 @@ export class PhaseOrchestrator {
   constructor(private readonly phaseName: PhaseName) {}
 
   async run(ctx: RunContext, phase: RunPlanPhase): Promise<PhaseResult> {
-    const assertions: AssertionResult[] = [];
+    const stepPromises: Promise<AssertionResult>[] = [];
     for (const group of phase.assertionGroups) {
       for (const step of group.steps) {
-        assertions.push(await this.runStep(ctx, step));
+        stepPromises.push(this.runStep(ctx, step));
       }
     }
+    const assertions = await Promise.all(stepPromises);
     const status = assertions.some((assertion) => assertion.status === "failed") ? "failed" : "passed";
     const result: PhaseResult = { phase: this.phaseName, status, assertions };
     this.writePhaseResult(ctx, result);
