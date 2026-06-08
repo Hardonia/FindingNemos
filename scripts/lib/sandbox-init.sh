@@ -86,6 +86,54 @@ emit_sandbox_sourced_file() {
   fi
 }
 
+
+# Emit a restricted log file atomically.
+# Usage: emit_restricted_log /path/to/log <mode> [<owner>]
+# Example: emit_restricted_log /tmp/gateway.log 644 gateway:gateway
+emit_restricted_log() {
+  local log_path="$1"
+  local mode="$2"
+  local owner="${3:-}"
+
+  # Validate the log path is under /tmp.
+  if [[ "$log_path" != /tmp/* ]]; then
+    echo "[SECURITY] Refusing to emit log outside /tmp: $log_path" >&2
+    return 1
+  fi
+
+  # Create an empty temp file and atomic rename.
+  local dir base tmp
+  dir="$(dirname "$log_path")"
+  base="$(basename "$log_path")"
+  tmp="$(mktemp "${dir}/.${base}.tmp.XXXXXX")" || return 1
+
+  # Create an empty file.
+  if ! cat /dev/null > "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+
+  # Apply ownership if provided and running as root.
+  if [ -n "$owner" ] && [ "$(id -u)" -eq 0 ]; then
+    if ! chown "$owner" "$tmp"; then
+      rm -f "$tmp"
+      return 1
+    fi
+  fi
+
+  # Apply mode.
+  if ! chmod "$mode" "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+
+  # Atomically rename into place.
+  if ! mv -f "$tmp" "$log_path"; then
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
 # Verify that trust-boundary files in /tmp have the expected permissions
 # BEFORE handing off to the sandbox user. Call this after all init work
 # and before launching services. Defence-in-depth: catches regressions
